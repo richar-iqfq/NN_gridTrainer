@@ -1,0 +1,48 @@
+{
+    "data_structure": {
+        "column_names": [
+            "ID",
+            "FORMULA",
+            "NAME",
+            "MW(g/mol)",
+            "TB(K)",
+            "Tc(K)",
+            "Pc(bar)",
+            "Vc(cm3/mol)",
+            "RHOC(g/cm3)",
+            "Zc",
+            "OMEGA",
+            "Dipole Moment",
+            "molecular volume"
+        ],
+        "features": [
+        ],
+        "targets" : [
+
+        ]
+    },
+    "network_structure": {
+        "optimizers": [
+            "Adam",
+            "Adagrad",
+            "Adadelta",
+            "AdamW",
+            "Adamax"
+        ],
+        "loss_functions": [
+            "nn.L1Loss()",
+            "nn.MSELoss()",
+            "nn.HuberLoss()",
+            "nn.SmoothL1Loss()"
+        ],
+        "af_valid": [
+            "nn.ELU()",
+            "nn.LeakyReLU()",
+            "nn.ReLU()",
+            "nn.SELU()",
+            "nn.Sigmoid()",
+            "nn.Tanh()",
+            "None"
+        ]
+    }
+}
