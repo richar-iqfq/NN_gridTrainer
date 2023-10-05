@@ -17,7 +17,7 @@ class Net_1Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None',
         not af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_1Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -29,7 +29,7 @@ class Net_1Hlayer(nn.Module):
 
         self.linear1 = nn.Linear(n_features, hidden_size1)
         self.af1 = eval(activation_functions[0])
-        self.linear2 = nn.Linear(hidden_size1, n_outputs)
+        self.linear2 = nn.Linear(hidden_size1, n_targets)
         self.af2 = eval(activation_functions[1])
 
     def forward(self, x):
@@ -55,7 +55,7 @@ class Net_2Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_2Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -70,7 +70,7 @@ class Net_2Hlayer(nn.Module):
         self.af1 = eval(activation_functions[0])
         self.linear2 = nn.Linear(hidden_size1, hidden_size2)
         self.af2 = eval(activation_functions[1])
-        self.linear3 = nn.Linear(hidden_size2, n_outputs)
+        self.linear3 = nn.Linear(hidden_size2, n_targets)
         self.af3 = eval(activation_functions[2])
 
     def forward(self, x):
@@ -97,7 +97,7 @@ class Net_3Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_3Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -115,7 +115,7 @@ class Net_3Hlayer(nn.Module):
         self.af2 = eval(activation_functions[1])
         self.linear3 = nn.Linear(hidden_size2, hidden_size3)
         self.af3 = eval(activation_functions[2])
-        self.linear4 = nn.Linear(hidden_size3, n_outputs)
+        self.linear4 = nn.Linear(hidden_size3, n_targets)
         self.af4 = eval(activation_functions[3])
 
     def forward(self, x):
@@ -143,7 +143,7 @@ class Net_4Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_4Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -164,7 +164,7 @@ class Net_4Hlayer(nn.Module):
         self.af3 = eval(activation_functions[2])
         self.linear4 = nn.Linear(hidden_size3, hidden_size4)
         self.af4 = eval(activation_functions[3])
-        self.linear5 = nn.Linear(hidden_size4, n_outputs)
+        self.linear5 = nn.Linear(hidden_size4, n_targets)
         self.af5 = eval(activation_functions[4])
         
     def forward(self, x):
@@ -193,7 +193,7 @@ class Net_5Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_5Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -217,7 +217,7 @@ class Net_5Hlayer(nn.Module):
         self.af4 = eval(activation_functions[3])
         self.linear5 = nn.Linear(hidden_size4, hidden_size5)
         self.af5 = eval(activation_functions[4])
-        self.linear6 = nn.Linear(hidden_size5, n_outputs)
+        self.linear6 = nn.Linear(hidden_size5, n_targets)
         self.af6 = eval(activation_functions[5])
         
     def forward(self, x):
@@ -247,7 +247,7 @@ class Net_6Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_outputs, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
         super(Net_6Hlayer, self).__init__()
 
         for af in activation_functions:
@@ -274,7 +274,7 @@ class Net_6Hlayer(nn.Module):
         self.af5 = eval(activation_functions[4])
         self.linear6 = nn.Linear(hidden_size5, hidden_size6)
         self.af6 = eval(activation_functions[5])
-        self.linear7 = nn.Linear(hidden_size6, n_outputs)
+        self.linear7 = nn.Linear(hidden_size6, n_targets)
         self.af7 = eval(activation_functions[6])
         
     def forward(self, x):
