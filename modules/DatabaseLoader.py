@@ -7,7 +7,7 @@ class DatabaseLoader():
         self.features = config.json['features']
         self.targets = config.json['targets']
 
-        self.DataFrame = pd.read_csv(config.database)
+        self.DataFrame = pd.read_csv(config.database_path)
 
         self.initial_size = len(self.DataFrame)
         self.after_unconverged_size = 0

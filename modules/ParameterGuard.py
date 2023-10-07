@@ -17,12 +17,22 @@ class ParameterGuard():
 
         self.random_state = config.custom['random_state']
 
+        self.check_routes()
+
         self.inputs_list = os.listdir(os.path.join('parameters', 'inputs'))
         self.outputs_list = os.listdir(os.path.join('parameters', 'outputs'))
 
         self.input_file, self.output_file = self.__build_filenames()
 
         self.input_is_saved, self.output_is_saved = self.is_param_saved()
+
+    def check_routes(self):
+        inputs = os.path.join('parameters', 'inputs')
+        outputs = os.path.join('parameters', 'outputs')
+
+        for route in [inputs, outputs]:
+            if not os.path.isdir(route):
+                os.makedirs(route)
 
     def is_param_saved(self):
         inp = True

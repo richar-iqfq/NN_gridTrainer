@@ -51,8 +51,8 @@ class PreprocessData():
         return in_param, out_param
     
     def __get_filenames(self):
-        input_name = f'in_{self.train_ID}_a{self.a}_b{self.b}_rs{self.random_state}.npy'
-        output_name = f'out_{self.train_ID}_a{self.a}_b{self.b}_rs{self.random_state}.npy'
+        input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
+        output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
 
         input_file = os.path.join('parameters', 'inputs', input_name)
         output_file = os.path.join('parameters', 'outputs', output_name)
