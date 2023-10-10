@@ -45,6 +45,8 @@ class Configurator():
         self.inputs = {
             'database' : 'dataset_final_sorted_2.4.3.csv', # Csv database name (not path)
             'scale_y' : True, # If true, target will be scaled to the interval (0, 1)
+            'v_min' : [0, 0, 0, 0, 0, 0], # Min value to scale each target value
+            'v_max' : [1, 1, 1, 1, 1, 1], # Max value to scale each target value
             'drop_file' : None, # File with the list of molecules to be drop from database in training
             'train_ID' : 'A000' # General ID for the training
         }
@@ -55,7 +57,7 @@ class Configurator():
             'extra_filename' : 'default', # Extra words that'll join the output file name
             'parted' : None, # Can be 1, 2 or 3. Refers to the split of the training.
             'seed' : 3358, # Seed for the alleatory spliting
-            'random_state' : 123 # Random state for the Split_dataset function
+            'random_state' : 1234 # Random state for the Split_dataset function
         }
 
         # monitor

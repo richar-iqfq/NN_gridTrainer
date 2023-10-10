@@ -1,7 +1,5 @@
 import numpy as np
-import pandas as pd
 import os
-import re
 
 from modules.DatabaseLoader import DatabaseLoader
 from sklearn.model_selection import train_test_split
@@ -81,12 +79,13 @@ class ParameterGuard():
             inputs[1,k] = np.std(x[:,k])
 
         # outputs
-        outputs = np.zeros(2)
+        outputs = np.zeros( (2, len(self.targets)) )
         
-        # Min
-        outputs[0] = np.min(y)
-        # Max
-        outputs[1] = np.max(y)
+        for l in range(len(self.targets)):
+            # Min
+            outputs[0,l] = np.min(y[:,l])
+            # Max
+            outputs[1,l] = np.max(y[:,l])
 
         return inputs, outputs
 

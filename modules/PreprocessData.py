@@ -15,6 +15,8 @@ class PreprocessData():
         self.targets = config.json['targets']
         self.n_targets = len(self.targets)
 
+        self.v_min = config.inputs['v_min']
+        self.v_max = config.inputs['v_max']
 
         self.train_ID = config.inputs['train_ID']
         self.scale_y = config.inputs['scale_y']
@@ -104,32 +106,27 @@ class PreprocessData():
         return x
     
     def y_scale_routine(self, y):
-        v_min = 0
-        v_max = 1
-
         Ymin = self.out_param[0]
         Ymax = self.out_param[1]
 
         y_scaled = np.zeros_like(y)
 
-        for i, y_value in enumerate(y):
-            Ystd = ( y_value - Ymin ) / ( Ymax - Ymin )
-            
-            y_scaled[i] = ( Ystd * (v_max - v_min) ) + v_min
+        for i, sample in enumerate(y):
+            for j, value in enumerate(sample):
+                Ystd = ( value - Ymin[j] ) / ( Ymax[j] - Ymin[j] )
+                y_scaled[i,j] = ( Ystd * (self.v_max[j] - self.v_min[j]) ) + self.v_min[j]
 
         return y_scaled
     
     def y_unscale_routine(self, y_scaled):
-        v_min = 0
-        v_max = 1
-
         Ymin = self.out_param[0]
         Ymax = self.out_param[1]
 
         y = np.zeros_like(y_scaled)
-
-        for i, y_scaled_value in enumerate(y_scaled):
-            y[i] = ( ( (y_scaled_value - v_min)/(v_max - v_min) ) * (Ymax - Ymin) ) + Ymin
+        
+        for i, sample in enumerate(y_scaled):
+            for j, value in enumerate(sample):
+                y[i,j] = ( ( (value - self.v_min[j])/(self.v_max[j] - self.v_min[j]) ) * (Ymax[j] - Ymin[j]) ) + Ymin[j]
 
         return y
 
