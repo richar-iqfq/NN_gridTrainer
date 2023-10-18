@@ -4,7 +4,7 @@ from configparser import ConfigParser
 
 class Configurator():
     def __init__(self):
-        # Main
+        # Main database route
         self.database_path = ''
 
         # Configurations
@@ -44,10 +44,10 @@ class Configurator():
         # Target
         self.inputs = {
             'database' : 'dataset_final_sorted_2.4.3.csv', # Csv database name (not path)
-            'scale_y' : True, # If true, target will be scaled to the interval (0, 1)
+            'scale_y' : True, # If true, target will be scaled to the interval (v_min, v_max)
             'v_min' : [0, 0, 0, 0, 0, 0], # Min value to scale each target value
             'v_max' : [1, 1, 1, 1, 1, 1], # Max value to scale each target value
-            'drop_file' : None, # File with the list of molecules to be drop from database in training
+            'drop_file' : None, # File with the list of molecules to be dropped from database in training
             'train_ID' : 'A000' # General ID for the training
         }
 
@@ -55,14 +55,14 @@ class Configurator():
         self.custom = {
             'lineal_output' : False, # If true, no output activation layer will be used
             'extra_filename' : 'default', # Extra words that'll join the output file name
-            'parted' : None, # Can be 1, 2 or 3. Refers to the split of the training.
+            'parted' : None, # Can be 1, 2 or 3. Refers to the split of the training in multiple scripts.
             'seed' : 3358, # Seed for the alleatory spliting
             'random_state' : 1234 # Random state for the Split_dataset function
         }
 
         # monitor
         self.monitoring = {
-            'best_acc' : 0,
+            'best_mean_acc' : 0,
             'best_epoch' : 0
         }
 
@@ -94,8 +94,13 @@ class Configurator():
         self.config_object.optionxform = str
 
     def update(self, **kwargs):
+        '''
+        Update values.
+        '''
+        # Validate incoming kwargs
         self.__validateParams(kwargs)
 
+        # Set values
         for key in kwargs:
             for component in self.components:
                 if key in component:
@@ -109,7 +114,10 @@ class Configurator():
         if self.custom['extra_filename'] == 'default':
             self.custom['extra_filename'] = f"{self.inputs['train_ID']}"
 
+        # Build database routes
         self.__build_database_routes()
+
+        # Import data from config####.json file
         self.__import_json_values()
 
     def __str__(self):
@@ -127,12 +135,18 @@ class Configurator():
         print(f'Valid parameters:\n{str(self.valid_keys)}')
 
     def __validateParams(self, values):
+        '''
+        Assure that all values are correct.
+        '''
         for key in values:
             if key not in self.valid_keys:
                 message = f'Unknown value -> {key}'
                 raise Exception(message)
-            
+
     def __build_database_routes(self):
+        '''
+        Build database and drop_file routes.
+        '''
         database_path = os.path.join('dataset', self.inputs['database'])
         if not os.path.isfile(database_path):
             message = f'{database_path} not found, please check b and alpha'
@@ -149,12 +163,17 @@ class Configurator():
                 raise Exception(message)
 
     def __import_json_values(self):
+        '''
+        Import configurations from the config####.json file.
+        '''
+        # Path to file
         config_file = os.path.join('config', self.configurations['config_file'])
 
         if not os.path.isfile(config_file):
             message = f"Configuration file -> {config_file} don't exists!"
             raise Exception(message)
-
+        
+        # Load data
         with open(config_file, 'r') as f:
             config = json.load(f)
 
@@ -170,6 +189,9 @@ class Configurator():
         self.json['af_valid'] = config['network_structure']['af_valid']
 
     def save_ini(self, config_file):
+        '''
+        Saves config.ini file with actual information
+        '''
         self.config_object['configurations'] = {
             'drop' : self.configurations['drop'],
             'config_file' : self.configurations['config_file'],
@@ -188,7 +210,7 @@ class Configurator():
         }
 
         self.config_object['monitoring'] = {
-            'best_acc' : self.monitoring['best_acc'],
+            'best_mean_acc' : self.monitoring['best_mean_acc'],
             'best_epoch' : self.monitoring['best_epoch']
         }
 
@@ -197,6 +219,9 @@ class Configurator():
             self.config_object.write(conf)
 
     def load_ini(self, config_path):
+        '''
+        Loads data from config.ini file.
+        '''
         self.config_object.read(config_path)
 
         # Load vales
@@ -215,7 +240,9 @@ class Configurator():
             self.custom[key] = ini_custom[key]
 
     def status(self):
-        
+        '''
+        Print main information
+        '''
         info = [
             f'Config : \n{self.configurations}\n',
             f'Hyperparameters : \n{self.hyperparameters}\n',

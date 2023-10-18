@@ -4,10 +4,13 @@ class Net_1Hlayer(nn.Module):
     '''
     Neural Network with 1 hidden layer
 
-    Attributes
+    Parameters
     ----------
     n_features : `int`
         Number of parameters given in the model input
+
+    n_targets : `int`
+        Number of targets expected in output layer
 
     dimension : `tuple` `int` (1 element)
         Tuple with the number of neurons in the hidden layer (n)
@@ -17,13 +20,8 @@ class Net_1Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None',
         not af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_1Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
 
@@ -47,6 +45,9 @@ class Net_2Hlayer(nn.Module):
     n_features : `int`
         Number of parameters given in the model input
 
+    n_targets : `int`
+        Number of targets expected in output layer
+
     dimension : `tuple` `int` (2 elements)
         Tuple with the number of neurons in each hidden layer (3, 6)
 
@@ -55,13 +56,8 @@ class Net_2Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_2Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
         hidden_size2 = dimension[1]
@@ -89,6 +85,9 @@ class Net_3Hlayer(nn.Module):
     n_features : `int`
         Number of parameters given in the model input
 
+    n_targets : `int`
+        Number of targets expected in output layer
+
     dimension : `tuple` `int` (3 elements)
         Tuple with the number of neurons in each hidden layer (3, 6, 9)
 
@@ -97,13 +96,8 @@ class Net_3Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_3Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
         hidden_size2 = dimension[1]
@@ -135,6 +129,9 @@ class Net_4Hlayer(nn.Module):
     n_features : `int`
         Number of parameters given in the model input
 
+    n_targets : `int`
+        Number of targets expected in output layer
+
     dimension : `tuple` `int` (4 elements)
         Tuple with the number of neurons in each hidden layer (3, 6, 9, 12)
 
@@ -143,13 +140,8 @@ class Net_4Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_4Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
         hidden_size2 = dimension[1]
@@ -185,6 +177,9 @@ class Net_5Hlayer(nn.Module):
     n_features : `int`
         Number of parameters given in the model input
 
+    n_targets : `int`
+        Number of targets expected in output layer
+
     dimension : `tuple` `int` (5 elements)
         Tuple with the number of neurons in each hidden layer (3, 6, 9, 12)
 
@@ -193,13 +188,8 @@ class Net_5Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_5Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
         hidden_size2 = dimension[1]
@@ -239,6 +229,9 @@ class Net_6Hlayer(nn.Module):
     n_features : `int`
         Number of parameters given in the model input
 
+    n_targets : `int`
+        Number of targets expected in output layer
+
     dimension : `tuple` `int` (6 elements)
         Tuple with the number of neurons in each hidden layer (3, 6, 9, 12, 1)
 
@@ -247,13 +240,8 @@ class Net_6Hlayer(nn.Module):
         format ['nn.ReLU()', ..., n]. If last element equals to 'None', not 
         af will be applied to the output.
     '''
-    def __init__(self, n_features, n_targets, dimension, activation_functions, af_valid):
+    def __init__(self, n_features, n_targets, dimension, activation_functions):
         super(Net_6Hlayer, self).__init__()
-
-        for af in activation_functions:
-            if af not in af_valid:
-                message = f'{af} is not a valid activation function'
-                raise Exception(message)
 
         hidden_size1 = dimension[0]
         hidden_size2 = dimension[1]

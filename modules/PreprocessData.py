@@ -7,6 +7,14 @@ from modules.ParameterGuard import ParameterGuard
 
 class PreprocessData():
     def __init__(self, config):
+        '''
+        Preprocess data, scale, unscale and assures if parameters are saved on
+        disk
+
+        Parameters
+        ----------
+        config object of `class` Configurator
+        '''
         self.config = config
 
         self.features = config.json['features']
@@ -40,6 +48,9 @@ class PreprocessData():
         self.x_train, self.x_val, self.x_test, self.y_train, self.y_val, self.y_test = self.Split_Data(self.x_scaled, self.y_scaled)
 
     def __get_parameters(self):
+        '''
+        Load the .npy parameters file for the scale and unscale routines
+        '''
         # Check if specific param_file is given
         if self.config.configurations['specific_param_file']:
             input_file = os.path.join('parameters', 'inputs', f"inputs_{self.config.configurations['specific_param_file']}")
@@ -53,6 +64,9 @@ class PreprocessData():
         return in_param, out_param
     
     def __get_filenames(self):
+        '''
+        Build the filename structure for the saved parameters file.
+        '''
         input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
         output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
 
@@ -62,6 +76,9 @@ class PreprocessData():
         return input_file, output_file
 
     def __build_structure(self):
+        '''
+        Build the data structure, ID, x and y arrays.
+        '''
         # Load DataFrame with data
         Loader = DatabaseLoader(self.config)
         DataFrame = Loader.load_database()
@@ -82,6 +99,10 @@ class PreprocessData():
         return ID, x, y
 
     def x_scale_routine(self, x):
+        '''
+        Scaling routine for features (x), use the mean and standard deviation
+        of the training splitted dataset.
+        '''
         mean = self.in_param[0] # mean
         std = self.in_param[1] # std
 
@@ -94,6 +115,10 @@ class PreprocessData():
         return x_scaled
     
     def x_unscale_routine(self, x_scaled):
+        '''
+        Unscaling routine for features (x), use the mean and standard deviation
+        of the training splitted dataset.
+        '''
         mean = self.in_param[0] # mean
         std = self.in_param[1] # std
 
@@ -106,6 +131,10 @@ class PreprocessData():
         return x
     
     def y_scale_routine(self, y):
+        '''
+        Scaling routine for targets (y), use the min and max value
+        of the training splitted dataset.
+        '''
         Ymin = self.out_param[0]
         Ymax = self.out_param[1]
 
@@ -119,6 +148,10 @@ class PreprocessData():
         return y_scaled
     
     def y_unscale_routine(self, y_scaled):
+        '''
+        Unscaling routine for targets (y), use the min and max value
+        of the training splitted dataset.
+        '''
         Ymin = self.out_param[0]
         Ymax = self.out_param[1]
 
@@ -131,6 +164,9 @@ class PreprocessData():
         return y
 
     def Scale(self, x, y):
+        '''
+        Compute the scaling of x and y if requested.
+        '''
         x_scale = self.x_scale_routine(x)
         
         if self.scale_y:
@@ -141,6 +177,9 @@ class PreprocessData():
         return x_scale, y_scale
     
     def Unscale(self, x_scaled, y_scaled):
+        '''
+        Compute the unscaling of x and y if requested.
+        '''
         x = self.x_unscale_routine(x_scaled)
 
         if self.scale_y:
@@ -151,6 +190,9 @@ class PreprocessData():
         return x, y
 
     def Split_Data(self, x, y):
+        '''
+        Split data into training, validation y testing set.
+        '''
         # Split the dataset into test and train sets
         x_train, x_rest, y_train, y_rest = train_test_split(x, y, test_size=0.2, random_state=self.random_state)
 
@@ -164,7 +206,13 @@ class PreprocessData():
         return x_train, x_val, x_test, y_train, y_val, y_test
 
     def Retrieve_Processed(self):
+        '''
+        Return the scaled values.
+        '''
         return self.ID, self.x_scaled, self.y_scaled
         
     def Retrieve_Splitted(self):
+        '''
+        Return the splitted data into training, validation and testing sets.
+        '''
         return self.x_train, self.x_val, self.x_test, self.y_train, self.y_val, self.y_test

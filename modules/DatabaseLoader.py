@@ -3,6 +3,13 @@ import pandas as pd
 
 class DatabaseLoader():
     def __init__(self, config):
+        '''
+        Main class for the loading and cleaning of data.
+
+        Parameters
+        ----------
+        config: `object` of `class` Configurator.
+        '''
         # Variable assingment
         self.features = config.json['features']
         self.targets = config.json['targets']
@@ -33,12 +40,12 @@ class DatabaseLoader():
         Returns
         -------
         anomalies (array of lenght -> n_samples):
-            Bool array with outliers marked as 0
+            Boolean array with outliers marked as 0
         '''
         # Anomalies
         anomalies = np.ones(len(data), dtype=bool)
 
-        # Set upper and lower limit to 3 standard deviation
+        # Set upper and lower limit to 3 times the standard deviation
         std = np.std(data)
         mean = np.mean(data)
         anomaly_cut_off = std * 3
@@ -55,6 +62,7 @@ class DatabaseLoader():
     
     def __drop_extra(self, DataFrame, drop_df=False):
         '''
+        Drop the specified IDs (drop file) from DataFrame
         '''
         if drop_df:
             drop_Frame = drop_df
@@ -86,9 +94,13 @@ class DatabaseLoader():
         return cleaned_dataframe
     
     def load_database(self):
+        '''
+        Loads the DataFrame to forward computation.
+        '''
+        # Clean dataset by removing anomalies
         cleaned_dataframe = self.__clean_database()
 
-        # If drop dataframe is given, will be retired from dataframe
+        # If drop dataframe is given, those IDs will be retired from dataframe
         if self.is_droping:
             cleaned_dataframe = self.__drop_extra(cleaned_dataframe)
             self.after_extradrop_size = len(cleaned_dataframe)

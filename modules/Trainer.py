@@ -29,66 +29,12 @@ from modules.Models import (
 #================================ Trainer ===============================================
 class Trainer():
     '''
-    Main training class to create the model, make the data preprocessing and start the training
+    Main class to create the model, make the data preprocessing and start the training
 
-    Attributes
+    Parameters
     ----------
-    file_name : `str`
-        File name where the results are going to be written inside the path: 
-        Training_results/`mode`/
-
-    architecture : `dict`
-        Dictionary with the whole network architecture: model (`class name of models`) (str),
-        num_features (int), dimension (`list`) (int), activation_functions (`list`) (str),
-        optimizer (`class name of nn.OPTIMIZERS`) (str), criterion (`class name of nn.CRITERION`) (str)
-
-    hyperparameters : `dict`
-        Dictionary with the hyperparameters to train the network: num_epochs (`int`), batch_size
-        (`int` or All), learning_rate (`int`)
-
-    config : instance of class `Configurator`
-        Object with all the main configurations and parameters to be used during training
-
-    mode : `str`
-        Mode of training (soft, tuning, strong, specific), default is soft
-
-    workers : 'int'
-        num_workers for the dataloader in the trainning, default is 4
-
-    extra_route : 'str'
-        if want to store inside an specific folder in path Training_results/mode/extra_route
-
-    Methods
-    -------
-    start_training(write=True, save_plots=False, allow_print=False)
-        Main method to start the training
-
-    overview()
-        Print the Network Structure, number of parameters and the size of the train and test dataset
-
-    database_size()
-        Returns the size of the trainning dataset (`int`)
-
-    parameters_count()
-        Returns the number of trainnable parameters in the network (`int`)
-
-    reset()
-        Reset the parameters in the Network
-
-    save_model(file)
-        Save the model state_dict in file (`str`), preferent pth
-    
-    load_model(file)
-        Load the model state_dict from file (`str`)
-
-    state()
-        Print the network state_dict
-
-    show_plots()
-        Show the plots builded during trainning
-    
-    close_plots()
-        Close all the matplotlib.pyplot figures to save memory
+    file_name `str`:
+        File name for the results folder.
 
     '''
     def __init__(self, file_name, architecture, hyperparameters, config, mode='complete', workers=0, extra_route=None):
@@ -99,6 +45,7 @@ class Trainer():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
+        # Set threads limit to avoid overload of cpu
         if config.cuda['limit_threads']:
             torch.set_num_threads(1)
         
@@ -113,36 +60,19 @@ class Trainer():
         if not os.path.isdir(self.path):
             os.makedirs(self.path)
         
-        self.mode = mode # Level of training
+        self.mode = mode # Level of training (complete, recovering)
         self.file_name = file_name # File where you'll write the results
-        self.names = [ 
-            'dimension',
-            'architecture',
-            'parameters',
-            'optimizer',
-            'loss_function',
-            'epochs',
-            'batch_size',
-            'lr',
-            'training_time',
-            'random_state',
-            'train_loss',
-            'val_loss',
-            'test_loss',
-            'mae_val',
-            'mae_test',
-            'err_val',
-            'err_test',
-            'r2_val',
-            'r2_test',
-            'acc_val',
-            'acc_test',
-            'outliers_count'
-        ] # Column names for the results file
+        
+        # Dictionary to store the training results
+        self.standard_column_names, self.results_column_names = self.__get_column_names()
+
+        # Result values
+        self.result_values = {}
 
         # Architecture variable assignment
         self.model_name = architecture['model']
         self.num_features = architecture['num_features']
+        self.num_targets = architecture['num_targets']
         self.dimension = architecture['dimension']
         self.activation_functions = architecture['activation_functions']
         self.optim = architecture['optimizer']
@@ -155,19 +85,16 @@ class Trainer():
 
         self.workers = workers
         self.is_plots = False
-        self.is_jpg_failed = False
-
-        af_valid = self.config.json['af_valid']
 
         # Model definition
-        self.model = eval(f'{self.model_name}({self.num_features}, {self.dimension}, {self.activation_functions}, {af_valid})')
+        self.model = eval(f'{self.model_name}({self.num_features}, {self.num_targets}, {self.dimension}, {self.activation_functions})')
 
         # Build routes
-        self.plots_path, self.img_path, self.pred_path = self.__build_routes()
+        self.plots_path, self.pred_path = self.__build_routes()
 
-        # Outliers value
-        self.outliers_count = 0
-        self.Outliers_DF = []
+        # Outliers values per target
+        self.outliers_count = {}
+        self.Outliers_DF = {}
 
         # Drop molecules
         if config.configurations['drop']:
@@ -179,15 +106,42 @@ class Trainer():
         self.processer = PreprocessData(config)
         self.loader = DatabaseLoader(config)
 
-        # ID values
+        # ID and data values (x and y already scaled)
         self.ID, self.x, self.y = self.processer.Retrieve_Processed()
-
-        # smiles_database
-        self.smiles_database = config.smiles_database
 
         # datasets
         self.random_state = config.custom['random_state']
-        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets(config)
+        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets(self.processer)
+
+    def __get_column_names(self):
+        standard_column_names = [ 
+            'dimension', 'architecture', 'parameters', 
+            'optimizer', 'loss_function', 'epochs',
+            'batch_size', 'lr', 'random_state']
+
+        training_column_names = ['training_time', 'train_loss', 'validation_loss', 'test_loss']
+
+        MAE_val_column_names = [f'MAE_val_{target}' for target in self.config.json['targets']] + ['MAE_val_mean']
+        MAE_test_column_names = [f'MAE_test_{target}' for target in self.config.json['targets']] + ['MAE_test_mean']
+
+        MSE_val_column_names = [f'MSE_val_{target}' for target in self.config.json['targets']] + ['MSE_val_mean']
+        MSE_test_column_names = [f'MSE_test_{target}' for target in self.config.json['targets']] + ['MSE_test_mean']
+
+        acc_val_column_names = [f'acc_val_{target}' for target in self.config.json['targets']] + ['acc_val_mean']
+        acc_test_column_names = [f'acc_test_{target}' for target in self.config.json['targets']] + ['acc_test_mean']
+        
+        r2_val_column_names = [f'r2_val_{target}' for target in self.config.json['targets']] + ['r2_val_mean']
+        r2_test_column_names = [f'r2_test_{target}' for target in self.config.json['targets']] + ['r2_test_mean']
+        
+        # outliers_column_names = [f'outliers_{target}' for target in self.config.json['targets']]
+
+        # Sum all the lists
+        results_column_names = training_column_names + MAE_val_column_names + MAE_test_column_names + \
+                                MSE_val_column_names + MSE_test_column_names + acc_val_column_names + \
+                                acc_test_column_names + r2_val_column_names + r2_test_column_names #+ \
+                                # outliers_column_names
+
+        return standard_column_names, results_column_names
 
     def __build_routes(self):
         dim = str(self.dimension).replace(', ', '|')
@@ -228,17 +182,15 @@ class Trainer():
 
         plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, extra_route_name[self.extra_route])
 
-        img_path = os.path.join(plots_path, 'img_mols')
-
         pred_path = os.path.join(self.path, 'Predictions')
-
-        if not os.path.isdir(img_path):
-            os.makedirs(img_path)
 
         if not os.path.isdir(pred_path):
             os.makedirs(pred_path)
 
-        return plots_path, img_path, pred_path
+        if not os.path.isdir(plots_path):
+            os.makedirs(plots_path)
+
+        return plots_path, pred_path
 
     def overview(self):
         '''
@@ -291,29 +243,6 @@ class Trainer():
 
         print(f'Model Loaded from: {file}\n')
 
-    def __save_checkpoint(self, epoch, optimizer, file):
-        '''
-        Saves a checkpoint for the current network 
-        '''
-        checkpoint = {
-            'epoch' : epoch,
-            'model_state' : self.model.state_dict(),
-            'optim_state' : optimizer.state_dict()
-        }
-
-        torch.save(checkpoint, file)
-
-    def __load_checkpoint(self, optimizer, file):
-        '''
-        Loads the checkpoint to current network
-        '''
-        checkpoint = torch.load(file)
-        self.model.load_state_dict(checkpoint['model_state'])
-        optimizer.load_state_dict(checkpoint['optim_state'])
-        epoch = checkpoint['epoch']
-
-        return epoch, optimizer
-
     def state(self):
         '''
         Print the state_dict of the model
@@ -329,8 +258,8 @@ class Trainer():
         fig1, ax1 = plt.subplots(1)
         fig1.set_size_inches(20, 13)
 
-        ax1.plot(self.values_plot['l_train'], '-r')
-        ax1.plot(self.values_plot['l_val'], ':g')
+        ax1.plot(self.values_plot['loss_train_list'], '-r')
+        ax1.plot(self.values_plot['loss_validation_list'], ':g')
         ax1.legend(['Train', 'Validation'])
         ax1.set_title('Loss', weight='bold')
         ax1.set_xlabel('Epochs')
@@ -504,17 +433,18 @@ class Trainer():
         '''
         plt.close('all')
     
-    def write_metrics(self, values):
+    def write_metrics(self):
         '''
         Save all the results inside csv file
         '''
-        cols = [str(val) for val in self.names]
+        columns = self.standard_column_names + self.results_column_names
+        values = self.result_values
 
         if not os.path.isfile(os.path.join(self.path, self.file_name)):
             with open(os.path.join(self.path, self.file_name), 'w') as txt:
-                txt.write(','.join(cols))
+                txt.write(','.join(columns))
         
-        ff = [
+        standard_line = [
             str(self.dimension).replace(',', '|'),
             str(self.activation_functions).replace(', ', '|'),
             self.parameters,
@@ -523,25 +453,21 @@ class Trainer():
             self.num_epochs,
             self.batch_size,
             self.learning_rate,
-            round(values[0], 2),
-            self.random_state,
-            round(values[1], 4),
-            round(values[2], 4),
-            values[3].round(4),
-            round(values[4], 4),
-            round(values[5], 4),
-            round(values[6], 4),
-            round(values[7], 4),
-            round(values[8], 4),
-            round(values[9], 4),
-            round(values[10]*100, 2),
-            round(values[11]*100, 2),
-            self.outliers_count
-            ]
-        
-        ff_str = [str(f) for f in ff]
+            self.random_state
+        ]
 
-        line = ','.join(ff_str)
+        results_line = []
+        for column in self.results_column_names:
+            if 'acc' in column:
+                value = np.round(values[column]*100, 2)
+            else:
+                value = np.round(values[column], 4)
+
+            results_line.append(value)
+
+        final_string = [str(f) for f in standard_line + results_line]
+
+        line = ','.join(final_string)
         with open(os.path.join(self.path, self.file_name), 'a') as txt:
             txt.write(f'\n{line}')
     
@@ -639,21 +565,49 @@ class Trainer():
         # Get the correlation factor
         lineal = LinearRegression()
 
+        # Metrics dictionary
+        MAE = {}
+        MSE = {}
+        acc = {}
+        r2 = {}
+        linear_predicted = {}
+
         if np.isnan(np.sum(y)) or np.isnan(np.sum(y_pred)):
-            return 1, 1, 0, 1, np.ones_like(y)
+            for i, target in enumerate(self.config.json['targets']):
+                MAE[target] = 1
+                MSE[target] = 1
+                acc[target] = 0
+                r2[target] = 1
+                
+                MAE['mean'] = 1
+                MSE['mean'] = 1
+                acc['mean'] = 0
+                r2['mean'] = 1
+
+                linear_predicted = np.ones_like(y[:,i])
 
         else:
-            lineal.fit(y, y_pred)
-            r2 = lineal.score(y, y_pred)
-            linear_predicted = lineal.predict(y)
+            for i, target in enumerate(self.config.json['targets']):
+                y_target = y[:,i].reshape(-1, 1)
+                y_pred_target = y_pred[:,i].reshape(-1, 1)
 
-            MAE = mean_absolute_error(y, y_pred)
-            MSE = mean_squared_error(y, y_pred)
-            RMSE = np.sqrt(MSE)
+                lineal.fit(y_target, y_pred_target)
+                
+                r2[target] = lineal.score(y_target, y_pred_target)
+                linear_predicted[target] = lineal.predict(y_target)
 
-            acc = abs(1 - RMSE)
-
-            return MAE, RMSE, acc, r2, linear_predicted
+                MAE[target] = mean_absolute_error(y_target, y_pred_target)
+                MSE[target] = mean_squared_error(y_target, y_pred_target)
+                
+                acc[target] = abs(1 - MSE[target])
+            
+        # Compute means
+        MAE['mean'] = np.mean( list(MAE.values()) )
+        MSE['mean'] = np.mean( list(MSE.values()) )
+        acc['mean'] = np.mean( list(acc.values()) )
+        r2['mean'] = np.mean( list(r2.values()) )
+        
+        return MAE, MSE, acc, r2, linear_predicted
 
     def __get_outliers(self, y, y_pred):
         boolean_outliers = np.zeros(len(y), dtype=bool)
@@ -689,31 +643,6 @@ class Trainer():
             outliers_df = []
 
         return boolean_outliers, outliers_df
-    
-    def __save_img_outliers(self):
-        from rdkit import Chem
-        from rdkit.Chem import Draw
-        from rdkit import RDLogger
-
-        # Disable logs and errors
-        RDLogger.DisableLog('rdApp.*')
-
-        smiles_df = pd.read_csv(self.smiles_database)
-        n_pics = self.config.configurations['n_pics']
-
-        for i, ID in enumerate(self.Outliers_DF['ID'].values[0:n_pics]):
-            row = smiles_df[smiles_df['ID'] == ID]
-            ID_smile = row['smiles'].values[0]
-
-            Mol = Chem.MolFromSmiles(ID_smile)
-
-            file_name = os.path.join(self.img_path, f'{i+1}_{ID}.jpg')
-
-            if Mol:
-                img = Draw.MolToImage(Mol)
-                img.save(file_name)
-            else:
-                self.is_jpg_failed = True
         
     def start_training(self, write=True, allow_print=False, save_plots=False, monitoring=False):
         '''
@@ -725,9 +654,9 @@ class Trainer():
         # Instance dataloaders
         train_loader, train_loader_full, val_loader, test_loader = self.__instance_Dataloaders()
         
-        # Training full tensors
+        # Training full tensor with all the data (batch_size == len(train set))
         for _, (x_tr, y_tr) in enumerate(train_loader_full):
-            x_training, y_training = x_tr, y_tr
+            x_train_full, y_train_full = x_tr, y_tr
 
         # Validation tensors
         for _, (x_v, y_v) in enumerate(val_loader):
@@ -744,10 +673,10 @@ class Trainer():
         criterion = eval(self.crit)
 
         # Define the metric lists
-        l_train = []
-        l_val = []
-        l_acc_val = []
-        r2_val = []
+        loss_train_list = []
+        loss_validation_list = []
+        mean_acc_validation_list = []
+        mean_r2_validation_list = []
 
         # ======================================================================
         # ========================== Training loop =============================
@@ -755,11 +684,11 @@ class Trainer():
         st = time.time() # Start time
 
         best_model_wts = copy.deepcopy(self.model.state_dict())
-        best_acc = 0.0
+        best_mean_acc = 0.0
 
         for epoch in range(self.num_epochs):
 
-            for _, (x_train, y_train) in enumerate(train_loader):
+            for _, (x_train, y_train) in enumerate(train_loader): # Here we use train_loader due to batch size
                 # Load values to device
                 x_train = x_train.to(self.device)
                 y_train = y_train.to(self.device)
@@ -782,8 +711,8 @@ class Trainer():
             with torch.no_grad():
                 # -----------------------Training------------------------------
                 # Unique step
-                x_train = copy.deepcopy(x_training)
-                y_train = copy.deepcopy(y_training)
+                x_train = copy.deepcopy(x_train_full)
+                y_train = copy.deepcopy(y_train_full)
                 
                 # Load values to device
                 x_train = x_train.to(self.device)
@@ -791,9 +720,9 @@ class Trainer():
 
                 with torch.autocast(device_type='cuda'):
                     ytrain_pred = self.model(x_train)
-                    loss_train_metric = criterion(ytrain_pred, y_train)
+                    loss_train = criterion(ytrain_pred, y_train)
 
-                l_train.append(loss_train_metric.item())
+                loss_train_list.append(loss_train.item())
 
                 # ---------------------Validation------------------------------
                 # Unique step
@@ -808,23 +737,23 @@ class Trainer():
                     yval_pred = self.model(x_val)
                     loss_val = criterion(yval_pred, y_val)
 
-                l_val.append(loss_val.item())
+                loss_validation_list.append(loss_val.item())
 
-                MAE_val, RMSE_val, accVal, r2Val, _ = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
-                l_acc_val.append(accVal)
-                r2_val.append(r2Val)
+                mean_acc_validation_list.append(acc_val['mean'])
+                mean_r2_validation_list.append(r2_val['mean'])
 
             # Check if model is stuck each 50 epochs
             if (epoch+1)%50 == 0:
-                if np.mean(l_acc_val[-15::]) == 0:
+                if np.mean(mean_acc_validation_list[-15::]) == 0:
                     break
 
             # Deep copy the model if monitoring
             if monitoring:
-                if accVal > best_acc:
-                    best_acc = accVal
+                if acc_val['mean'] > best_mean_acc:
+                    best_mean_acc = acc_val['mean']
                     best_epoch = epoch
                     best_model_wts = copy.deepcopy(self.model.state_dict())
 
@@ -833,14 +762,14 @@ class Trainer():
                     print('\n', '#'*37, ' Training Progress ', '#'*37, '\n')
 
                 if (epoch+1)%10 == 0:
-                    print(f'Epoch: {(epoch+1):04} Validation: MAE = {MAE_val:.4f} ERR = {RMSE_val:.4f} ACC = {accVal*100:.2f} r2 = {r2Val:.4f}', end='\r')
+                    print(f"Epoch: {(epoch+1):04} Validation: mean_MAE = {MAE_val['mean']:.4f} ERR = {MSE_val['mean']:.4f} mean_ACC = {acc_val['mean']*100:.2f} mean_r2 = {r2_val['mean']:.4f}", end='\r')
 
         # ===== Restore best when monitoring =====
         if monitoring:
-            print(f'\nBetter performance: epoch = {best_epoch} ___ acc = {best_acc}')
+            print(f'\nBetter performance: epoch = {best_epoch} ___ mean_acc = {best_mean_acc}')
 
             self.config.update(
-                best_acc=best_acc,
+                best_mean_acc=best_mean_acc,
                 best_epoch=best_epoch
             )
             self.model.load_state_dict(best_model_wts)
@@ -849,8 +778,8 @@ class Trainer():
             with torch.no_grad():
                 # -----------------------Training------------------------------
                 # Unique step
-                x_train = copy.deepcopy(x_training)
-                y_train = copy.deepcopy(y_training)
+                x_train = copy.deepcopy(x_train_full)
+                y_train = copy.deepcopy(y_train_full)
                 
                 # Load values to device
                 x_train = x_train.to(self.device)
@@ -858,9 +787,9 @@ class Trainer():
 
                 with torch.autocast(device_type='cuda'):
                     ytrain_pred = self.model(x_train)
-                    loss_train_metric = criterion(ytrain_pred, y_train)
+                    loss_train = criterion(ytrain_pred, y_train)
 
-                l_train.append(loss_train_metric.item())
+                loss_train_list.append(loss_train.item())
 
                 # ---------------------Validation------------------------------
                 # Unique step
@@ -875,13 +804,13 @@ class Trainer():
                     yval_pred = self.model(x_val)
                     loss_val = criterion(yval_pred, y_val)
 
-                l_val.append(loss_val.item())
+                loss_validation_list.append(loss_val.item())
 
-                MAE_val, RMSE_val, accVal, r2Val, _ = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
-                l_acc_val.append(accVal)
-                r2_val.append(r2Val)
+                mean_acc_validation_list.append(acc_val['mean'])
+                mean_r2_validation_list.append(r2_val['mean'])
     
         # ----------------------------- Test ------------------------
         with torch.no_grad():
@@ -897,36 +826,49 @@ class Trainer():
                 ytest_pred = self.model(x_test)
                 loss_test = criterion(ytest_pred, y_test)
 
-        l_tt = loss_test.item()
-        l_tt = torch.as_tensor(l_tt)
+        loss_test = loss_test.item()
+        loss_test = torch.as_tensor(loss_test)
 
-        MAE_test, RMSE_test, acc_test, r2_test, _ = self.__compute_metrics(y_test, ytest_pred)
+        MAE_test, MSE_test, acc_test, r2_test, _ = self.__compute_metrics(y_test, ytest_pred)
 
         et = time.time() # End time
         elapsed_time = et - st
 
         self.parameters_count() # To define self.parameters
 
-        values = [
-            elapsed_time, loss_train_metric.item(), loss_val.item(), l_tt.numpy(), MAE_val, 
-            MAE_test, RMSE_val, RMSE_test, r2_val[-1], r2_test, l_acc_val[-1], acc_test
-        ]
+        # Update metrics dictionary
+        self.result_values['training_time'] = elapsed_time
+        self.result_values['train_loss'] = loss_train.item()
+        self.result_values['validation_loss'] = loss_val.item()
+        self.result_values['test_loss'] = loss_test.numpy()
+        
+        for target in self.config.json['targets'] + ['mean']:
+            self.result_values[f'MAE_val_{target}'] = MAE_val[target]
+            self.result_values[f'MAE_test_{target}'] = MAE_test[target]
+            self.result_values[f'MSE_val_{target}'] = MSE_val[target]
+            self.result_values[f'MSE_test_{target}'] = MSE_test[target]
+            self.result_values[f'acc_val_{target}'] = acc_val[target]
+            self.result_values[f'acc_test_{target}'] = acc_test[target]
+            self.result_values[f'r2_val_{target}'] = r2_val[target]
+            self.result_values[f'r2_test_{target}'] = r2_test[target]
 
-        self.values_plot = {'l_train' : l_train,
-                        'l_val' : l_val,
-                        'acc_val' : l_acc_val,
-                        'y_val' : y_val,
-                        'yval_pred' : yval_pred,
-                        'y_test' : y_test,
-                        'ytest_pred' : ytest_pred,
-                        'r2_val' : r2_val,
-                        'r2_test' : r2_test
-                        }
+        self.values_plot = {
+            'loss_train' : loss_train_list,
+            'loss_validation' : loss_validation_list,
+            'mean_acc_val' : mean_acc_validation_list,
+            'y_val' : y_val,
+            'yval_pred' : yval_pred,
+            'y_test' : y_test,
+            'ytest_pred' : ytest_pred,
+            'r2_val' : r2_val,
+            'r2_test' : r2_test,
+            'mean_r2_val' : mean_r2_validation_list
+        }
 
         if write:
             self.save_model(os.path.join(self.plots_path, 'model.pth'))
             self.write_predictions()
-            self.write_metrics(values)
+            self.write_metrics()
             self.write_config(os.path.join(self.plots_path, 'config.ini'))
 
         if save_plots:
