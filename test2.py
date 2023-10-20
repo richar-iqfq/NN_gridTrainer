@@ -34,9 +34,11 @@ def Test_model(config):
     file = Network + f'{extra_name}.csv'
     tr = Trainer(file, architecture, Hyperparameters, config, mode='complete', extra_route='grid')
     
-    tr.overview()
+    # tr.overview()
 
-    tr.start_training(save_plots=False, allow_print=True, monitoring=False)
+    tr.start_training(save_plots=True, allow_print=True, monitoring=False)
+
+    tr.show_plots()
 
 config = Configurator()
 config.update(

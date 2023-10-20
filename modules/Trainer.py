@@ -41,6 +41,9 @@ class Trainer():
         # main config object
         self.config = config
         
+        # Targets
+        self.targets = self.config.json['targets']
+
         # Backend to run in tensor cores
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
@@ -121,25 +124,27 @@ class Trainer():
 
         training_column_names = ['training_time', 'train_loss', 'validation_loss', 'test_loss']
 
-        MAE_val_column_names = [f'MAE_val_{target}' for target in self.config.json['targets']] + ['MAE_val_mean']
-        MAE_test_column_names = [f'MAE_test_{target}' for target in self.config.json['targets']] + ['MAE_test_mean']
+        MAE_val_column_names = [f'MAE_val_{target}' for target in self.targets]
+        MAE_test_column_names = [f'MAE_test_{target}' for target in self.targets]
 
-        MSE_val_column_names = [f'MSE_val_{target}' for target in self.config.json['targets']] + ['MSE_val_mean']
-        MSE_test_column_names = [f'MSE_test_{target}' for target in self.config.json['targets']] + ['MSE_test_mean']
+        MSE_val_column_names = [f'MSE_val_{target}' for target in self.targets]
+        MSE_test_column_names = [f'MSE_test_{target}' for target in self.targets]
 
-        acc_val_column_names = [f'acc_val_{target}' for target in self.config.json['targets']] + ['acc_val_mean']
-        acc_test_column_names = [f'acc_test_{target}' for target in self.config.json['targets']] + ['acc_test_mean']
+        acc_val_column_names = [f'acc_val_{target}' for target in self.targets]
+        acc_test_column_names = [f'acc_test_{target}' for target in self.targets]
         
-        r2_val_column_names = [f'r2_val_{target}' for target in self.config.json['targets']] + ['r2_val_mean']
-        r2_test_column_names = [f'r2_test_{target}' for target in self.config.json['targets']] + ['r2_test_mean']
+        r2_val_column_names = [f'r2_val_{target}' for target in self.targets] 
+        r2_test_column_names = [f'r2_test_{target}' for target in self.targets]
         
-        # outliers_column_names = [f'outliers_{target}' for target in self.config.json['targets']]
+        general_val_column_names = ['MAE_val_general', 'MSE_val_general', 'acc_val_general', 'r2_val_general']
+        general_test_column_names = ['MAE_test_general', 'MSE_test_general', 'acc_test_general', 'r2_test_general']
+        outliers_column_names = [f'outliers_{target}' for target in self.targets]
 
         # Sum all the lists
         results_column_names = training_column_names + MAE_val_column_names + MAE_test_column_names + \
                                 MSE_val_column_names + MSE_test_column_names + acc_val_column_names + \
-                                acc_test_column_names + r2_val_column_names + r2_test_column_names #+ \
-                                # outliers_column_names
+                                acc_test_column_names + r2_val_column_names + r2_test_column_names + \
+                                general_val_column_names + general_test_column_names + outliers_column_names
 
         return standard_column_names, results_column_names
 
@@ -288,56 +293,73 @@ class Trainer():
         r2_val = self.values_plot['r2_val']
         r2_test = self.values_plot['r2_test']
 
-        fig2, ax = plt.subplots(2)
-        fig2.suptitle('Regression', weight='bold')
-        fig2.set_size_inches(20, 13)
+        boolean_outliers_val, _ = self.__get_outliers(y_val, yval_pred)
+        boolean_outliers_test, _ = self.__get_outliers(y_test, ytest_pred)
 
-        y = [y_val, y_test]
-        r2 = [r2_val[-1], r2_test]
-        y_pred = [yval_pred, ytest_pred]
-        label = ['Validation', 'Test']
-        style = ['.r', '.m']
-        for i in range(2):
-            boolean_outliers, _ = self.__get_outliers(y[i], y_pred[i])
+        for i, target in enumerate(self.targets):
+            fig_regression, ax_regression = plt.subplots(2)
+
+            fig_regression.suptitle(f'Regression {target}', weight='bold')
+            fig_regression.set_size_inches(20, 13)
+
+            y = [y_val[:,i], y_test[:,i]]
+            y_pred = [yval_pred[:,i], ytest_pred[:,i]]
             
-            ax[i].plot(y[i], y[i], '-b')
-            ax[i].scatter(y[i][boolean_outliers], y_pred[i][boolean_outliers], color='yellowgreen')
-            ax[i].plot(y[i], y_pred[i], style[i])
-            
-            ax[i].set_xlabel('y')
-            ax[i].set_ylabel('y_pred')
+            r2 = [r2_val[target], r2_test[target]]
 
-            ax[i].set_title(f'{label[i]} r2 = {r2[i]:.4f}      outliers count = {np.count_nonzero(boolean_outliers) }', weight='bold')
+            label = ['Validation', 'Test']
+            style = ['.r', '.m']
 
-        # accuracy plots
-        fig3, ax3 = plt.subplots(1)
-        fig3.set_size_inches(20, 13)
+            boolean_outliers = [boolean_outliers_val[target], boolean_outliers_test[target]]
 
-        ax3.plot(self.values_plot['acc_val'], '--g')
-        ax3.set_xlabel('Epochs')
-        ax3.set_ylabel('Accuracy %')
+            for i in range(2):
+                outliers_count = np.count_nonzero(boolean_outliers[i])
 
-        ax3.set_title('Accuracy', weight='bold')
+                # save_outliers on class
+                self.result_values[f'outliers_{target}'] = outliers_count
+
+                ax_regression[i].plot(y[i], y[i], '-b')
+                ax_regression[i].scatter(y[i][boolean_outliers[i]], y_pred[i][boolean_outliers[i]], color='yellowgreen')
+                ax_regression[i].plot(y[i], y_pred[i], style[i])
+                
+                ax_regression[i].set_xlabel('y')
+                ax_regression[i].set_ylabel('y_pred')
+
+                ax_regression[i].set_title(f'{label[i]} r2 = {r2[i]:.4f}      outliers count = {outliers_count}', weight='bold')
+
+            if save:
+                fig_regression_path = os.path.join(self.plots_path, 'regression')
+                if not os.path.isdir(fig_regression_path):
+                    os.makedirs(fig_regression_path)
+
+                fig_regression.savefig(os.path.join(fig_regression_path, f"{target.replace('/', '-')}.pdf"), dpi=450, format='pdf')
+
+        # accuracy over epochs plots
+        fig_accuracy, ax_accuracy = plt.subplots(1)
+        fig_accuracy.set_size_inches(20, 13)
+
+        ax_accuracy.plot(self.values_plot['general_acc_val'], '--g')
+        ax_accuracy.set_xlabel('Epochs')
+        ax_accuracy.set_ylabel('Accuracy %')
+
+        ax_accuracy.set_title('General Accuracy', weight='bold')
         
         # Regression over epochs
         fig4, ax4 = plt.subplots(1)
         fig4.set_size_inches(20, 13)
 
-        ax4.plot(self.values_plot['r2_val'])
+        ax4.plot(self.values_plot['general_r2_val'])
         ax4.set_xlabel('Epochs')
         ax4.set_ylabel('r2')
 
-        ax4.set_title('Regression coeficient', weight='bold')
+        ax4.set_title('General Regression coeficient', weight='bold')
 
         self.is_plots = True
 
         if save:
             fig1.savefig(os.path.join(self.plots_path, 'loss.pdf'), dpi=450, format='pdf')
-            fig2.savefig(os.path.join(self.plots_path, 'corr.pdf'), dpi=450, format='pdf')
-            fig3.savefig(os.path.join(self.plots_path, 'acc.pdf'), dpi=450, format='pdf')
+            fig_accuracy.savefig(os.path.join(self.plots_path, 'acc.pdf'), dpi=450, format='pdf')
             fig4.savefig(os.path.join(self.plots_path, 'reg.pdf'), dpi=450, format='pdf')
-
-            # self.__save_img_outliers()
 
     def __build_full_plots(self, y, y_pred, save=True):
         # ========================================== Scaled Plot =====================================================0
@@ -492,22 +514,23 @@ class Trainer():
 
         values = {
             'ID' : ID,
-            'y' : y.flatten(),
-            'y_pred' : y_pred.flatten()
         }
 
-        self.__build_full_plots(y, y_pred)
-        _, outliers_df = self.__get_outliers(y, y_pred)
+        for i, target in enumerate(self.targets):
+            values[target] = y[:,i]
+            values[f'{target}_pred'] = y_pred[:,i]
 
-        self.outliers_count = len(outliers_df)
-        self.Outliers_DF = outliers_df
+        # self.__build_full_plots(y, y_pred)
+        # _, outliers_df = self.__get_outliers(y, y_pred, full_prediction=True)
+
+        # self.Outliers_DF = outliers_df
 
         predictions = pd.DataFrame(values)
         predictions.to_csv(os.path.join(self.plots_path, 'predictions.csv'), index=False)
-        outliers_df.to_csv(os.path.join(self.plots_path, 'outliers.csv'), index=False)
+        # outliers_df.to_csv(os.path.join(self.plots_path, 'outliers.csv'), index=False)
 
-        if self.config.configurations['save_full_predictions']:
-            self.__save_full_predictions(x, y_pred)
+        # if self.config.configurations['save_full_predictions']:
+        #     self.__save_full_predictions(x, y_pred)
 
     def write_config(self, path):
         '''
@@ -570,10 +593,9 @@ class Trainer():
         MSE = {}
         acc = {}
         r2 = {}
-        linear_predicted = {}
 
         if np.isnan(np.sum(y)) or np.isnan(np.sum(y_pred)):
-            for i, target in enumerate(self.config.json['targets']):
+            for i, target in enumerate(self.targets):
                 MAE[target] = 1
                 MSE[target] = 1
                 acc[target] = 0
@@ -587,59 +609,69 @@ class Trainer():
                 linear_predicted = np.ones_like(y[:,i])
 
         else:
-            for i, target in enumerate(self.config.json['targets']):
+            # General metrics
+            lineal.fit(y, y_pred)
+            r2['general'] = lineal.score(y, y_pred)
+            linear_predicted = lineal.predict(y_pred)
+
+            MAE['general'] = mean_absolute_error(y, y_pred)
+            MSE['general'] = mean_squared_error(y, y_pred)
+
+            acc['general'] = abs(1 - MSE['general'])
+
+            # For target metrics
+            for i, target in enumerate(self.targets):
                 y_target = y[:,i].reshape(-1, 1)
                 y_pred_target = y_pred[:,i].reshape(-1, 1)
 
                 lineal.fit(y_target, y_pred_target)
                 
                 r2[target] = lineal.score(y_target, y_pred_target)
-                linear_predicted[target] = lineal.predict(y_target)
-
+                
                 MAE[target] = mean_absolute_error(y_target, y_pred_target)
                 MSE[target] = mean_squared_error(y_target, y_pred_target)
                 
                 acc[target] = abs(1 - MSE[target])
-            
-        # Compute means
-        MAE['mean'] = np.mean( list(MAE.values()) )
-        MSE['mean'] = np.mean( list(MSE.values()) )
-        acc['mean'] = np.mean( list(acc.values()) )
-        r2['mean'] = np.mean( list(r2.values()) )
         
         return MAE, MSE, acc, r2, linear_predicted
 
-    def __get_outliers(self, y, y_pred):
-        boolean_outliers = np.zeros(len(y), dtype=bool)
-        diff_outliers = np.zeros(len(y))
+    def __get_outliers(self, y, y_pred, full_prediction=False):
         ID = self.ID
         percent = self.config.configurations['percent_outliers']
+        tol = percent*100
 
-        for i, y_value in enumerate(y):
-            tol = percent*100
+        boolean_outliers = {}
+        outliers_dict = {}
 
-            if y_value != 0:
-                err = abs( (y_value - y_pred[i])/(y_value) )*100
-            else:
-                err = np.inf
+        for i, target in enumerate(self.targets):
+            y_target = y[:,i]
+            ytarget_pred = y_pred[:,i]
 
-            if err > tol:
-                boolean_outliers[i] = True
-                diff_outliers[i] = err
-
-        outliers_vals = diff_outliers[boolean_outliers]
-
-        try:
-            outliers_ID = ID.loc[boolean_outliers]
+            boolean = np.zeros(len(y_target), dtype=bool)
+            diff = np.zeros(len(y_target))
             
-            outliers_df = pd.DataFrame(
-                {'ID' : outliers_ID,
-                'Values' : outliers_vals
-                }
-            )
+            for j, y_value in enumerate(y_target):
+                if y_value != 0:
+                    err = abs( (y_value - ytarget_pred[j])/(y_value) )*100
+                else:
+                    err = np.inf
 
+                if err > tol:
+                    boolean[j] = True
+                    diff[j] = err
+
+            outliers_vals = diff[boolean]
+            boolean_outliers[target] = boolean
+            if full_prediction:
+                outliers_ID = ID.loc[boolean]
+
+                outliers_dict[f'{target}_ID'] = outliers_ID
+                outliers_dict[f'{target}_value'] = outliers_vals
+        
+        if full_prediction:
+            outliers_df = pd.DataFrame(outliers_dict)
             outliers_df = outliers_df.sort_values('Values', ascending=False)
-        except:
+        else:
             outliers_df = []
 
         return boolean_outliers, outliers_df
@@ -675,8 +707,8 @@ class Trainer():
         # Define the metric lists
         loss_train_list = []
         loss_validation_list = []
-        mean_acc_validation_list = []
-        mean_r2_validation_list = []
+        general_acc_validation_list = []
+        general_r2_validation_list = []
 
         # ======================================================================
         # ========================== Training loop =============================
@@ -742,18 +774,18 @@ class Trainer():
                 MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
-                mean_acc_validation_list.append(acc_val['mean'])
-                mean_r2_validation_list.append(r2_val['mean'])
+                general_acc_validation_list.append(acc_val['general'])
+                general_r2_validation_list.append(r2_val['general'])
 
             # Check if model is stuck each 50 epochs
             if (epoch+1)%50 == 0:
-                if np.mean(mean_acc_validation_list[-15::]) == 0:
+                if np.mean(general_acc_validation_list[-15::]) == 0:
                     break
 
             # Deep copy the model if monitoring
             if monitoring:
-                if acc_val['mean'] > best_mean_acc:
-                    best_mean_acc = acc_val['mean']
+                if acc_val['general'] > best_mean_acc:
+                    best_general_acc = acc_val['general']
                     best_epoch = epoch
                     best_model_wts = copy.deepcopy(self.model.state_dict())
 
@@ -762,14 +794,14 @@ class Trainer():
                     print('\n', '#'*37, ' Training Progress ', '#'*37, '\n')
 
                 if (epoch+1)%10 == 0:
-                    print(f"Epoch: {(epoch+1):04} Validation: mean_MAE = {MAE_val['mean']:.4f} ERR = {MSE_val['mean']:.4f} mean_ACC = {acc_val['mean']*100:.2f} mean_r2 = {r2_val['mean']:.4f}", end='\r')
+                    print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {MSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f}", end='\r')
 
         # ===== Restore best when monitoring =====
         if monitoring:
-            print(f'\nBetter performance: epoch = {best_epoch} ___ mean_acc = {best_mean_acc}')
+            print(f'\nBetter performance: epoch = {best_epoch} ___ acc = {best_general_acc}')
 
             self.config.update(
-                best_mean_acc=best_mean_acc,
+                best_acc=best_general_acc,
                 best_epoch=best_epoch
             )
             self.model.load_state_dict(best_model_wts)
@@ -809,8 +841,8 @@ class Trainer():
                 MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
-                mean_acc_validation_list.append(acc_val['mean'])
-                mean_r2_validation_list.append(r2_val['mean'])
+                general_acc_validation_list.append(acc_val['general'])
+                general_r2_validation_list.append(r2_val['general'])
     
         # ----------------------------- Test ------------------------
         with torch.no_grad():
@@ -842,7 +874,7 @@ class Trainer():
         self.result_values['validation_loss'] = loss_val.item()
         self.result_values['test_loss'] = loss_test.numpy()
         
-        for target in self.config.json['targets'] + ['mean']:
+        for target in self.targets + ['general']:
             self.result_values[f'MAE_val_{target}'] = MAE_val[target]
             self.result_values[f'MAE_test_{target}'] = MAE_test[target]
             self.result_values[f'MSE_val_{target}'] = MSE_val[target]
@@ -853,23 +885,22 @@ class Trainer():
             self.result_values[f'r2_test_{target}'] = r2_test[target]
 
         self.values_plot = {
-            'loss_train' : loss_train_list,
-            'loss_validation' : loss_validation_list,
-            'mean_acc_val' : mean_acc_validation_list,
+            'loss_train_list' : loss_train_list,
+            'loss_validation_list' : loss_validation_list,
+            'general_acc_val' : general_acc_validation_list,
             'y_val' : y_val,
             'yval_pred' : yval_pred,
             'y_test' : y_test,
             'ytest_pred' : ytest_pred,
             'r2_val' : r2_val,
             'r2_test' : r2_test,
-            'mean_r2_val' : mean_r2_validation_list
+            'general_r2_val' : general_r2_validation_list
         }
 
+        self.__build_plots(save=save_plots)
+        
         if write:
             self.save_model(os.path.join(self.plots_path, 'model.pth'))
             self.write_predictions()
             self.write_metrics()
             self.write_config(os.path.join(self.plots_path, 'config.ini'))
-
-        if save_plots:
-            self.__build_plots(save=True)
