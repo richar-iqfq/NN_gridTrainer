@@ -23,7 +23,7 @@ def Test_model(config):
     }
 
     Hyperparameters = {
-        'num_epochs' : 50,
+        'num_epochs' : 600,
         'batch_size' : 256,
         'learning_rate' : 0.001
     }
@@ -37,8 +37,6 @@ def Test_model(config):
     # tr.overview()
 
     tr.start_training(save_plots=True, allow_print=True, monitoring=False)
-
-    tr.show_plots()
 
 config = Configurator()
 config.update(

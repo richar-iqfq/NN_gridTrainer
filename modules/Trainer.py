@@ -97,8 +97,7 @@ class Trainer():
 
         # Outliers values per target
         self.outliers_count = {}
-        self.Outliers_DF = {}
-
+        
         # Drop molecules
         if config.configurations['drop']:
             self.drop = config.inputs['drop_file']
@@ -259,6 +258,11 @@ class Trainer():
         '''
         Build all the required plots
         '''
+        if save:
+            fig_regression_path = os.path.join(self.plots_path, 'regression')
+            if not os.path.isdir(fig_regression_path):
+                os.makedirs(fig_regression_path)
+        
         # Loss graphic
         fig1, ax1 = plt.subplots(1)
         fig1.set_size_inches(20, 13)
@@ -328,10 +332,6 @@ class Trainer():
                 ax_regression[i].set_title(f'{label[i]} r2 = {r2[i]:.4f}      outliers count = {outliers_count}', weight='bold')
 
             if save:
-                fig_regression_path = os.path.join(self.plots_path, 'regression')
-                if not os.path.isdir(fig_regression_path):
-                    os.makedirs(fig_regression_path)
-
                 fig_regression.savefig(os.path.join(fig_regression_path, f"{target.replace('/', '-')}.pdf"), dpi=450, format='pdf')
 
         # accuracy over epochs plots
@@ -363,71 +363,39 @@ class Trainer():
 
     def __build_full_plots(self, y, y_pred, save=True):
         # ========================================== Scaled Plot =====================================================0
-        # Regression plot
-        fig_full, ax = plt.subplots(1)
-        fig_full.suptitle('Full Regression', weight='bold')
-        fig_full.set_size_inches(20, 13)
+        fig_full_regression_path = os.path.join(self.plots_path, 'full_regression')
+        if not os.path.isdir(fig_full_regression_path):
+            os.makedirs(fig_full_regression_path)
 
         boolean_outliers, _ = self.__get_outliers(y, y_pred)
         
-        MAE, RMSE, acc, r2, linear_predicted = self.__compute_metrics(y, y_pred)
-        
-        ax.plot(y, y, '-b')
-        ax.plot(y, linear_predicted, '-g')
-        ax.scatter(y[boolean_outliers], y_pred[boolean_outliers], color='yellowgreen')
-        ax.plot(y, y_pred, '.r')
-        
-        ax.set_xlabel('y')
-        ax.set_ylabel('y_pred')
+        MAE, MSE, acc, r2, linear_predicted = self.__compute_metrics(y, y_pred)
 
-        ax.set_title(f'r2 = {r2:.4f}      outliers count = {np.count_nonzero(boolean_outliers) }', weight='bold')
+        for i, target in enumerate(self.targets):
+            # Variable assingment
+            y_target = y[:,i].flatten()
+            ytarget_pred = y_pred[:,i].flatten()
+            linear_predicted_target = linear_predicted[:,i].flatten()
 
-        textstr = '\n'.join([
-            f'MAE = {MAE:.4f}',
-            f'RMSE = {RMSE:.4f}',
-            f'acc = {acc*100:.2f}'
-            ])
-        
-        # these are matplotlib.patch.Patch properties
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        
-        # place a text box in upper left in axes coords
-        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
-                verticalalignment='top', bbox=props)
-        
-        if save:
-            fig_full.savefig(os.path.join(self.plots_path, 'full_corr.pdf'), dpi=450, format='pdf')
-
-        del(fig_full)
-
-        # ================================== Unscaled Plot ===========================================
-        if self.config.inputs['scale_y'] == True or self.config.custom['lineal_output'] == False:
             # Regression plot
             fig_full, ax = plt.subplots(1)
-            fig_full.suptitle('Full Regression over b', weight='bold')
+            fig_full.suptitle(f'Full Regression {target}', weight='bold')
             fig_full.set_size_inches(20, 13)
-
-            b = self.processer.y_unscale_routine(y)
-            b_pred = self.processer.y_unscale_routine(y_pred)
-
-            boolean_outliers, _ = self.__get_outliers(b, b_pred)
             
-            MAE, RMSE, acc, r2, linear_predicted = self.__compute_metrics(b, b_pred)
+            ax.plot(y_target, y_target, '-b')
+            # ax.plot(y_target, linear_predicted_target, '-g')
+            ax.scatter(y_target[boolean_outliers[target]], ytarget_pred[boolean_outliers[target]], color='yellowgreen')
+            ax.plot(y_target, ytarget_pred, '.r')
             
-            ax.plot(b, b, '-b')
-            ax.plot(b, linear_predicted, '-g')
-            ax.scatter(b[boolean_outliers], b_pred[boolean_outliers], color='yellowgreen')
-            ax.plot(b, b_pred, '.r')
-            
-            ax.set_xlabel('b')
-            ax.set_ylabel('b_pred')
+            ax.set_xlabel('y')
+            ax.set_ylabel('y_pred')
 
-            ax.set_title(f'r2 = {r2:.4f}      outliers count = {np.count_nonzero(boolean_outliers) }', weight='bold')
+            ax.set_title(f'r2 = {r2[target]:.4f}      outliers count = {np.count_nonzero(boolean_outliers[target]) }', weight='bold')
 
             textstr = '\n'.join([
-                f'MAE = {MAE:.4f}',
-                f'RMSE = {RMSE:.4f}',
-                f'acc = {acc*100:.2f}'
+                f'MAE = {MAE[target]:.4f}',
+                f'MSE = {MSE[target]:.4f}',
+                f'acc = {acc[target]*100:.2f}'
                 ])
             
             # these are matplotlib.patch.Patch properties
@@ -436,9 +404,59 @@ class Trainer():
             # place a text box in upper left in axes coords
             ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
                     verticalalignment='top', bbox=props)
-            
+
             if save:
-                fig_full.savefig(os.path.join(self.plots_path, 'full_bcorr.pdf'), dpi=450, format='pdf')
+                fig_full.savefig(os.path.join(fig_full_regression_path, f"{target.replace('/', '-')}_full.pdf"), dpi=450, format='pdf')
+        
+        # ================================== Unscaled Plot ===========================================
+        if self.config.inputs['scale_y'] == True or self.config.custom['lineal_output'] == False:
+            y_unscaled = self.processer.y_unscale_routine(y)
+            y_unscaled_pred = self.processer.y_unscale_routine(y_pred)
+
+            boolean_outliers, _ = self.__get_outliers(y_unscaled, y_unscaled_pred)
+                
+            MAE, MSE, acc, r2, linear_predicted = self.__compute_metrics(y_unscaled, y_unscaled_pred)
+
+            fig_full_unscaled_path = os.path.join(self.plots_path, 'full_unscalled_regression')
+            if not os.path.isdir(fig_full_unscaled_path):
+                os.makedirs(fig_full_unscaled_path)
+
+            for i, target in enumerate(self.targets):
+                # variable assingment
+                ytarget_unscaled = y_unscaled[:,i]
+                ytarget_unscaled_pred = y_unscaled_pred[:,i]
+                linear_predicted_target = linear_predicted[:,i]
+
+                # Regression plot
+                fig_full_unscaled, ax_unscaled = plt.subplots(1)
+                fig_full_unscaled.suptitle(f'Full {target} Regression Unscaled', weight='bold')
+                fig_full_unscaled.set_size_inches(20, 13)
+                
+                ax_unscaled.plot(ytarget_unscaled, ytarget_unscaled, '-b')
+                # ax_unscaled.plot(ytarget_unscaled, linear_predicted_target, '-g')
+                ax_unscaled.scatter(ytarget_unscaled[boolean_outliers[target]], ytarget_unscaled_pred[boolean_outliers[target]], color='yellowgreen')
+                ax_unscaled.plot(ytarget_unscaled, ytarget_unscaled_pred, '.r')
+                
+                ax_unscaled.set_xlabel('y')
+                ax_unscaled.set_ylabel('y_pred')
+
+                ax_unscaled.set_title(f'r2 = {r2[target]:.4f}      outliers count = {np.count_nonzero(boolean_outliers[target]) }', weight='bold')
+
+                textstr = '\n'.join([
+                    f'MAE = {MAE[target]:.4f}',
+                    f'MSE = {MSE[target]:.4f}',
+                    f'acc = {acc[target]*100:.2f}'
+                    ])
+                
+                # these are matplotlib.patch.Patch properties
+                props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+                
+                # place a text box in upper left in axes coords
+                ax_unscaled.text(0.05, 0.95, textstr, transform=ax_unscaled.transAxes, fontsize=12,
+                        verticalalignment='top', bbox=props)
+                
+                if save:
+                    fig_full_unscaled.savefig(os.path.join(fig_full_unscaled_path, f"{target.replace('/', '-')}_full_unscaled.pdf"), dpi=450, format='pdf')
 
     def show_plots(self, save=False):
         '''
@@ -520,17 +538,15 @@ class Trainer():
             values[target] = y[:,i]
             values[f'{target}_pred'] = y_pred[:,i]
 
-        # self.__build_full_plots(y, y_pred)
+        self.__build_full_plots(y, y_pred)
         # _, outliers_df = self.__get_outliers(y, y_pred, full_prediction=True)
-
-        # self.Outliers_DF = outliers_df
 
         predictions = pd.DataFrame(values)
         predictions.to_csv(os.path.join(self.plots_path, 'predictions.csv'), index=False)
         # outliers_df.to_csv(os.path.join(self.plots_path, 'outliers.csv'), index=False)
 
-        # if self.config.configurations['save_full_predictions']:
-        #     self.__save_full_predictions(x, y_pred)
+        if self.config.configurations['save_full_predictions']:
+            self.__save_full_predictions(x, y_pred)
 
     def write_config(self, path):
         '''
@@ -542,7 +558,9 @@ class Trainer():
         _, y_unscaled = self.processer.Unscale(x, y_pred)
 
         df = self.loader.load_database()
-        df['b_pred'] = y_unscaled.flatten()
+
+        for i, target in enumerate(self.targets):
+            df[f'{target}_pred'] = y_unscaled[:,i].flatten()
 
         df.to_csv(os.path.join(self.pred_path, self.file_name.replace('.csv', '_FPredictions.csv')), index=False)
 
@@ -612,7 +630,7 @@ class Trainer():
             # General metrics
             lineal.fit(y, y_pred)
             r2['general'] = lineal.score(y, y_pred)
-            linear_predicted = lineal.predict(y_pred)
+            linear_predicted = lineal.predict(y)
 
             MAE['general'] = mean_absolute_error(y, y_pred)
             MSE['general'] = mean_squared_error(y, y_pred)
@@ -898,7 +916,8 @@ class Trainer():
         }
 
         self.__build_plots(save=save_plots)
-        
+        plt.close('all')
+
         if write:
             self.save_model(os.path.join(self.plots_path, 'model.pth'))
             self.write_predictions()
