@@ -100,32 +100,29 @@ class Launcher():
 
         tr.start_training(save_plots=save_plots, allow_print=True, monitoring=monitoring)
 
-    def Run_training(self, config, perform=['grid', 'optimization', 'tuning_batch', 'tuning_lr', 'lineal', 'random_state', 'around_exploration']):
+    def Run_training(self, config, network=None, perform=['grid', 'optimization', 'tuning_batch', 'tuning_lr', 'lineal', 'random_state', 'around_exploration']):
         '''
-        Start the analysis
+        Start the grid training
 
         Parameters
         ----------
         config : `dict`
-            Dictionary with the configuration for the training. max_hidden_layers (`int`),
-            max_neurons (`int`), dimension (`tuple` of `int`), activation_functions (`tuple` of `str`),
-            batch_size_range (`tuple` of `int`), learning_rate_range (`tuple` of `int`), n_tries (`int`),
-            start_point (`int`), save_plots (`bool`).
+            Object of class Configurator
 
-        Hyperparameters : `dict`
-            Dictionary with the fixed hyperparameters to try in the exploration. num_epochs (`int`),
-            batch_size (`int` or All), learning_rate (`int`)
-
-        options : `dict`
-            Dictionary with the fixed optimizer and criterion (loss_function) names (`str`) to use
-
-        custom : `dict` (optional)
-            Dictionary with the custom values for the training: parted (`int`), lineal_output (`bool`)
-            extra__name (`str`), seed (`int`). Default is None
-
+        network : `dict`
+            Dictionary from the ResultsReader.recover_best(), when using this feature you can only train one step
+            
         perform : `list`
-            List with the steps to perform, allowed combinations are ['grid', 'optimization']
+            List with the steps to perform: grid, optimization, tuning_batch, tuning_lr, random_state,
+            around_exploration
         '''
+        if network:
+            if len(perform) > 1:
+                print(f'{len(perform)} steps in perform')
+                print('When passing network parameter to trainer, can not define more than one step')
+            if 'grid' in perform:
+                print('Grid step not available when passing network')
+
         num_targets = config.json['num_targets']
         num_features = config.json['num_features']
         optimizers = config.json['optimizers']
@@ -140,8 +137,10 @@ class Launcher():
         max_hidden_layers = config.configurations['max_hidden_layers']
         min_neurons = config.configurations['min_neurons']
         max_neurons = config.configurations['max_neurons']
+
         lr_range = config.configurations['learning_rate_range']
         bz_range = config.configurations['batch_size_range']
+        
         tries = config.configurations['n_tries']
         n_networks = config.configurations['n_networks']
         start_point = config.configurations['start_point']
@@ -297,17 +296,21 @@ class Launcher():
                 print('.'*50, '\n')
 
                 # Search for better optimizer and criterion over network
-                try:
-                    rd = Reader(hidden_size, f'{hidden_size}Hlayer{extra_name}.csv', type='complete', step='grid')
-                    better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{hidden_size}Hlayer{extra_name}.csv', type='complete', step='grid')
+                        better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
 
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
+                        if better_network == None:
+                            print('Any functional model found for {}...')
+                            break
                     
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
                 
                 for i, network_step in enumerate(better_network):
                     
@@ -371,16 +374,20 @@ class Launcher():
                 print('.'*50, '\n')
                     
                 # Search for better batch size in network
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}.csv', type='complete', step='optimization')
-                    better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{extra_name}.csv', type='complete', step='optimization')
+                        better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
 
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
+                    if better_network == None:
+                        print('Any functional model found for {}...')
+                        break
 
                 file = Network + f'{extra_name}_batches'
                 rnd = np.random.RandomState(seed=seed)
@@ -497,16 +504,20 @@ class Launcher():
                 print('.'*50, '\n')
 
                 # Search for better learning_rate in network
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}_batches', type='complete', step='tuning_batch')
-                    better_network = rd.recover_best(criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{extra_name}_batches', type='complete', step='tuning_batch')
+                        better_network = rd.recover_best(criteria=reader_criteria)
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
 
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
+                    if better_network == None:
+                        print('Any functional model found for {}...')
+                        break
 
                 file = Network + f'{extra_name}_lr'
                 rnd = np.random.RandomState(seed=seed)
@@ -576,16 +587,20 @@ class Launcher():
                 print('.'*50, '\n')
 
                 # Search for better learning_rate in network
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
-                    better_network = rd.recover_best(criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
+                        better_network = rd.recover_best(criteria=reader_criteria)
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
 
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
+                    if better_network == None:
+                        print('Any functional model found for {}...')
+                        break
 
                 file = Network + f'{extra_name}_lr_lineal' #!!!!!!!!!!!!!!!!!!!
                 file += '.csv'
@@ -664,16 +679,20 @@ class Launcher():
                 print('.'*50, '\n')
 
                 # Search for better learning_rate in network
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
-                    better_network = rd.recover_best(criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
+                        better_network = rd.recover_best(criteria=reader_criteria)
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
 
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
+                    if better_network == None:
+                        print('Any functional model found for {}...')
+                        break
                 
                 rnd = np.random.RandomState(seed=seed)
                 random_states = rnd.randint(150, 200000, tries)
@@ -743,16 +762,20 @@ class Launcher():
                 print('.'*50, '\n')
 
                 # Search for better learning_rate in network
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='random_state')
-                    better_network = rd.recover_best(criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
+                if network:
+                    print('Running specific network\n')
+                    better_network = network
+                else:
+                    try:
+                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='random_state')
+                        better_network = rd.recover_best(criteria=reader_criteria)
+                    except:
+                        print(f'No files found for {Network}')
+                        continue
 
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
+                    if better_network == None:
+                        print('Any functional model found for {}...')
+                        break
 
                 file = Network + f'{extra_name}_RE' #!!!!!!!!!!!!!!!!!!!
 

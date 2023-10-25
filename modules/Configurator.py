@@ -22,7 +22,6 @@ class Configurator():
             'workers' : 0, # Number of workers for the training
             'reader_criteria' : 'acc_val_general', # criteria to choose the better network
             'percent_outliers' : 0.08, # Tolerance for outliers
-            'drop_model_outliers' : False, # If True, will extract the outliers obtained in full training
             'drop' : False, # File name with the extra molecules to be dropped from database
             'config_file' : 'default.json', # Configuration file with features and other relevant parameters
             }
@@ -36,7 +35,7 @@ class Configurator():
 
         # Options
         self.loss = {
-            'optimizer' : 'AdamW', # Optimizer
+            'optimizer' : 'Adam', # Optimizer
             'criterion' : 'nn.L1Loss()' # Loss function
         }
 

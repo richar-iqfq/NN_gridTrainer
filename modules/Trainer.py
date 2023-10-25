@@ -138,8 +138,8 @@ class Trainer():
         MAE_val_column_names = [f'MAE_val_{target}' for target in self.targets]
         MAE_test_column_names = [f'MAE_test_{target}' for target in self.targets]
 
-        MSE_val_column_names = [f'MSE_val_{target}' for target in self.targets]
-        MSE_test_column_names = [f'MSE_test_{target}' for target in self.targets]
+        RMSE_val_column_names = [f'RMSE_val_{target}' for target in self.targets]
+        RMSE_test_column_names = [f'RMSE_test_{target}' for target in self.targets]
 
         acc_val_column_names = [f'acc_val_{target}' for target in self.targets]
         acc_test_column_names = [f'acc_test_{target}' for target in self.targets]
@@ -147,13 +147,13 @@ class Trainer():
         r2_val_column_names = [f'r2_val_{target}' for target in self.targets] 
         r2_test_column_names = [f'r2_test_{target}' for target in self.targets]
         
-        general_val_column_names = ['MAE_val_general', 'MSE_val_general', 'acc_val_general', 'r2_val_general']
-        general_test_column_names = ['MAE_test_general', 'MSE_test_general', 'acc_test_general', 'r2_test_general']
+        general_val_column_names = ['MAE_val_general', 'RMSE_val_general', 'acc_val_general', 'r2_val_general']
+        general_test_column_names = ['MAE_test_general', 'RMSE_test_general', 'acc_test_general', 'r2_test_general']
         outliers_column_names = [f'outliers_{target}' for target in self.targets] + ['outliers_general']
 
         # Sum all the lists
         results_column_names = training_column_names + MAE_val_column_names + MAE_test_column_names + \
-                                MSE_val_column_names + MSE_test_column_names + acc_val_column_names + \
+                                RMSE_val_column_names + RMSE_test_column_names + acc_val_column_names + \
                                 acc_test_column_names + r2_val_column_names + r2_test_column_names + \
                                 general_val_column_names + general_test_column_names + outliers_column_names
 
@@ -164,7 +164,7 @@ class Trainer():
         arch = str(self.activation_functions).replace(', ', '|')
         general_folder = f'{arch}_{dim}'
 
-        extra_route_name = {
+        step_name = {
             'grid' : '',
             'optimization' : f'{self.optim}_{self.crit}',
             'tuning_batch' : f'batches_{self.batch_size}',
@@ -176,7 +176,7 @@ class Trainer():
 
         file_name = self.file_name
 
-        plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, extra_route_name[self.step])
+        plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, step_name[self.step])
 
         pred_path = os.path.join(self.path, 'Predictions')
 
@@ -366,7 +366,7 @@ class Trainer():
 
         boolean_outliers, _ = self.__get_outliers(y, y_pred)
         
-        MAE, MSE, acc, r2 = self.__compute_metrics(y, y_pred)
+        MAE, RMSE, acc, r2 = self.__compute_metrics(y, y_pred)
 
         outliers_general = 0
         for i, target in enumerate(self.targets):
@@ -396,7 +396,7 @@ class Trainer():
 
             textstr = '\n'.join([
                 f'MAE = {MAE[target]:.4f}',
-                f'MSE = {MSE[target]:.4f}',
+                f'RMSE = {RMSE[target]:.4f}',
                 f'acc = {acc[target]*100:.2f}'
                 ])
             
@@ -420,7 +420,7 @@ class Trainer():
 
             boolean_outliers, _ = self.__get_outliers(y_unscaled, y_unscaled_pred)
                 
-            MAE, MSE, acc, r2 = self.__compute_metrics(y_unscaled, y_unscaled_pred)
+            MAE, RMSE, acc, r2 = self.__compute_metrics(y_unscaled, y_unscaled_pred)
 
             fig_full_unscaled_path = os.path.join(self.plots_path, 'full_unscalled_regression')
             if not os.path.isdir(fig_full_unscaled_path):
@@ -449,7 +449,7 @@ class Trainer():
 
                 textstr = '\n'.join([
                     f'MAE = {MAE[target]:.4f}',
-                    f'MSE = {MSE[target]:.4f}',
+                    f'RMSE = {RMSE[target]:.4f}',
                     f'acc = {acc[target]*100:.2f}'
                     ])
                 
@@ -615,21 +615,21 @@ class Trainer():
 
         # Metrics dictionary
         MAE = {}
-        MSE = {}
+        RMSE = {}
         acc = {}
         r2 = {}
 
         if np.isnan(np.sum(y)) or np.isnan(np.sum(y_pred)):
             for i, target in enumerate(self.targets):
                 MAE[target] = 1
-                MSE[target] = 1
+                RMSE[target] = 1
                 acc[target] = 0
                 r2[target] = 1
                 
-                MAE['mean'] = 1
-                MSE['mean'] = 1
-                acc['mean'] = 0
-                r2['mean'] = 1
+            MAE['general'] = 1
+            RMSE['general'] = 1
+            acc['general'] = 0
+            r2['general'] = 1
 
                 # linear_predicted = np.ones_like(y[:,i])
 
@@ -640,9 +640,11 @@ class Trainer():
             # linear_predicted = lineal.predict(y)
 
             MAE['general'] = mean_absolute_error(y, y_pred)
-            MSE['general'] = mean_squared_error(y, y_pred)
-
-            acc['general'] = abs(1 - MSE['general'])
+            
+            MSE = mean_squared_error(y, y_pred)
+            RMSE['general'] = np.sqrt(MSE)
+            
+            acc['general'] = abs(1 - RMSE['general'])
 
             # For target metrics
             for i, target in enumerate(self.targets):
@@ -654,11 +656,13 @@ class Trainer():
                 r2[target] = lineal.score(y_target, y_pred_target)
                 
                 MAE[target] = mean_absolute_error(y_target, y_pred_target)
-                MSE[target] = mean_squared_error(y_target, y_pred_target)
                 
-                acc[target] = abs(1 - MSE[target])
+                MSE = mean_squared_error(y_target, y_pred_target)
+                RMSE[target] = np.sqrt(MSE)
+                
+                acc[target] = abs(1 - RMSE[target])
         
-        return MAE, MSE, acc, r2#, linear_predicted
+        return MAE, RMSE, acc, r2#, linear_predicted
 
     def __get_outliers(self, y, y_pred, full_prediction=False):
         ID = self.ID
@@ -796,7 +800,7 @@ class Trainer():
 
                 loss_validation_list.append(loss_val.item())
 
-                MAE_val, MSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, RMSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
                 general_acc_validation_list.append(acc_val['general'])
@@ -819,7 +823,7 @@ class Trainer():
                     print('\n', '#'*37, ' Training Progress ', '#'*37, '\n')
 
                 if (epoch+1)%10 == 0:
-                    print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {MSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f}", end='\r')
+                    print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {RMSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f}", end='\r')
 
         # ===== Restore best when monitoring =====
         if monitoring:
@@ -863,7 +867,7 @@ class Trainer():
 
                 loss_validation_list.append(loss_val.item())
 
-                MAE_val, MSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, RMSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
                 general_acc_validation_list.append(acc_val['general'])
@@ -886,7 +890,7 @@ class Trainer():
         loss_test = loss_test.item()
         loss_test = torch.as_tensor(loss_test)
 
-        MAE_test, MSE_test, acc_test, r2_test = self.__compute_metrics(y_test, ytest_pred)
+        MAE_test, RMSE_test, acc_test, r2_test = self.__compute_metrics(y_test, ytest_pred)
 
         et = time.time() # End time
         elapsed_time = et - st
@@ -902,8 +906,8 @@ class Trainer():
         for target in self.targets + ['general']:
             self.result_values[f'MAE_val_{target}'] = MAE_val[target]
             self.result_values[f'MAE_test_{target}'] = MAE_test[target]
-            self.result_values[f'MSE_val_{target}'] = MSE_val[target]
-            self.result_values[f'MSE_test_{target}'] = MSE_test[target]
+            self.result_values[f'RMSE_val_{target}'] = RMSE_val[target]
+            self.result_values[f'RMSE_test_{target}'] = RMSE_test[target]
             self.result_values[f'acc_val_{target}'] = acc_val[target]
             self.result_values[f'acc_test_{target}'] = acc_test[target]
             self.result_values[f'r2_val_{target}'] = r2_val[target]

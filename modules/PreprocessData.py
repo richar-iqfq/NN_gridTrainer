@@ -35,8 +35,8 @@ class PreprocessData():
         self.ID, self.x, self.y = self.__build_structure()
 
         # Compute parameters
-        guard = ParameterGuard(self.config)
-        guard.save(self.x, self.y)
+        self.guard = ParameterGuard(self.config)
+        self.guard.save(self.x, self.y)
 
         # Load parameters in class
         self.in_param, self.out_param = self.__get_parameters()
@@ -51,24 +51,10 @@ class PreprocessData():
         '''
         Load the .npy parameters file for the scale and unscale routines
         '''
-        input_file, output_file = self.__get_filenames()
-
-        in_param = np.load(input_file)
-        out_param = np.load(output_file)
+        in_param = np.load(self.guard.input_file)
+        out_param = np.load(self.guard.output_file)
 
         return in_param, out_param
-    
-    def __get_filenames(self):
-        '''
-        Build the filename structure for the saved parameters file.
-        '''
-        input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
-        output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
-
-        input_file = os.path.join('parameters', 'inputs', input_name)
-        output_file = os.path.join('parameters', 'outputs', output_name)
-
-        return input_file, output_file
 
     def __build_structure(self):
         '''
