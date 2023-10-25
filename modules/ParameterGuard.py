@@ -15,22 +15,19 @@ class ParameterGuard():
 
         self.random_state = config.custom['random_state']
 
-        self.check_routes()
+        self.input_path = os.path.join('parameters', 'inputs')
+        self.output_path = os.path.join('parameters', 'outputs')
 
-        self.inputs_list = os.listdir(os.path.join('parameters', 'inputs'))
-        self.outputs_list = os.listdir(os.path.join('parameters', 'outputs'))
+        if not os.path.isdir('parameters'):
+            os.makedirs(self.input_path)
+            os.makedirs(self.output_path)
+
+        self.inputs_list = os.listdir(self.input_path)
+        self.outputs_list = os.listdir(self.output_path)
 
         self.input_file, self.output_file = self.__build_filenames()
 
         self.input_is_saved, self.output_is_saved = self.is_param_saved()
-
-    def check_routes(self):
-        inputs = os.path.join('parameters', 'inputs')
-        outputs = os.path.join('parameters', 'outputs')
-
-        for route in [inputs, outputs]:
-            if not os.path.isdir(route):
-                os.makedirs(route)
 
     def is_param_saved(self):
         inp = True
@@ -50,8 +47,8 @@ class ParameterGuard():
         input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
         output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
 
-        input_file = os.path.join('parameters', 'inputs', input_name)
-        output_file = os.path.join('parameters', 'outputs', output_name)
+        input_file = os.path.join(self.input_path, input_name)
+        output_file = os.path.join(self.output_path, output_name)
 
         return input_file, output_file
 

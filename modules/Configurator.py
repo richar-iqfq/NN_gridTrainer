@@ -10,23 +10,22 @@ class Configurator():
         # Configurations
         self.configurations = {
             'max_hidden_layers' : 5, # Max number of hidden layers
-            'min_neurons' : 5, # Min number of neurons on each layer
-            'max_neurons' : 20,  # Max number of neurons on each layer
+            'min_neurons' : 1, # Min number of neurons on each layer
+            'max_neurons' : 10,  # Max number of neurons on each layer
             'learning_rate_range' : (0.001 , 0.1), # Range to choose the lr values randomly
             'batch_size_range' : (30, 1500), # Range to choose the batch size randomly
-            'n_tries' : 600, # Number of tries for alleatory search
+            'n_tries' : 300, # Number of tries for alleatory search
+            'n_networks' : 1, # Number of networks to sort and perform in each training step
             'start_point' : 1, # Number of the initial hidden layer
             'save_plots' : True, # If true, the trainer will storage all the metric plots
             'save_full_predictions' : False, # If true, generates the final file with the targets unscaled
             'workers' : 0, # Number of workers for the training
-            'reader_criteria' : 'acc_val', # criteria to choose the better network
+            'reader_criteria' : 'acc_val_general', # criteria to choose the better network
             'percent_outliers' : 0.08, # Tolerance for outliers
-            'n_pics' : 30, # Number of molecules to build pictures
             'drop_model_outliers' : False, # If True, will extract the outliers obtained in full training
             'drop' : False, # File name with the extra molecules to be dropped from database
             'config_file' : 'default.json', # Configuration file with features and other relevant parameters
-            'specific_param_file' : False # Especific parameters filename for scaling
-        }
+            }
         
         # Hyperparameters
         self.hyperparameters = {
@@ -45,17 +44,16 @@ class Configurator():
         self.inputs = {
             'database' : 'dataset_final_sorted_2.4.3.csv', # Csv database name (not path)
             'scale_y' : True, # If true, target will be scaled to the interval (v_min, v_max)
+            'lineal_output' : False, # If true, no output activation layer will be used
             'v_min' : [0, 0, 0, 0, 0, 0], # Min value to scale each target value
             'v_max' : [1, 1, 1, 1, 1, 1], # Max value to scale each target value
             'drop_file' : None, # File with the list of molecules to be dropped from database in training
-            'train_ID' : 'A000' # General ID for the training
+            'train_ID' : 'T000' # General ID for the training
         }
 
         # Custom
         self.custom = {
-            'lineal_output' : False, # If true, no output activation layer will be used
             'extra_filename' : 'default', # Extra words that'll join the output file name
-            'parted' : None, # Can be 1, 2 or 3. Refers to the split of the training in multiple scripts.
             'seed' : 3358, # Seed for the alleatory spliting
             'random_state' : 1234 # Random state for the Split_dataset function
         }
@@ -195,17 +193,16 @@ class Configurator():
         self.config_object['configurations'] = {
             'drop' : self.configurations['drop'],
             'config_file' : self.configurations['config_file'],
-            'specific_param_file' : self.configurations['specific_param_file']
         }
 
         self.config_object['inputs'] = {
             'database' : self.inputs['database'],
             'scale_y' : self.inputs['scale_y'],
+            'lineal_output' : self.inputs['lineal_output'],
             'train_ID' : self.inputs['train_ID']
         }
 
         self.config_object['custom'] = {
-            'lineal_output' : self.custom['lineal_output'],
             'seed' : self.custom['seed']
         }
 

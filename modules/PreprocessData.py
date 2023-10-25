@@ -51,12 +51,7 @@ class PreprocessData():
         '''
         Load the .npy parameters file for the scale and unscale routines
         '''
-        # Check if specific param_file is given
-        if self.config.configurations['specific_param_file']:
-            input_file = os.path.join('parameters', 'inputs', f"inputs_{self.config.configurations['specific_param_file']}")
-            output_file = os.path.join('parameters', 'outputs', f"outputs_{self.config.configurations['specific_param_file']}")
-        else:
-            input_file, output_file = self.__get_filenames()
+        input_file, output_file = self.__get_filenames()
 
         in_param = np.load(input_file)
         out_param = np.load(output_file)

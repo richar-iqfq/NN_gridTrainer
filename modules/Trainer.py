@@ -37,7 +37,19 @@ class Trainer():
         File name for the results folder.
 
     '''
-    def __init__(self, file_name, architecture, hyperparameters, config, mode='complete', workers=0, extra_route=None):
+    def __init__(self, file_name, architecture, hyperparameters, config, mode='complete', workers=0, step=None):
+        # Path names
+        self.path_name = {
+            'grid' : '01_grid',
+            'optimization' : '02_optimization',
+            'tuning_batch' : '03_tuning_batch',
+            'tuning_lr' : '04_tuning_lr',
+            'lineal' : '05_lineal',
+            'random_state' : '06_random_state',
+            'around_exploration' : '07_around_exploration',
+            'recovering' : 'recovering' 
+        }
+        
         # main config object
         self.config = config
         
@@ -56,9 +68,9 @@ class Trainer():
 
         self.path = os.path.join('Training_results', mode) # Path to store the results
         
-        if extra_route:
-            self.path = os.path.join(self.path, extra_route)
-            self.extra_route = extra_route
+        if step:
+            self.path = os.path.join(self.path, self.path_name[step])
+            self.step = step
 
         if not os.path.isdir(self.path):
             os.makedirs(self.path)
@@ -137,7 +149,7 @@ class Trainer():
         
         general_val_column_names = ['MAE_val_general', 'MSE_val_general', 'acc_val_general', 'r2_val_general']
         general_test_column_names = ['MAE_test_general', 'MSE_test_general', 'acc_test_general', 'r2_test_general']
-        outliers_column_names = [f'outliers_{target}' for target in self.targets]
+        outliers_column_names = [f'outliers_{target}' for target in self.targets] + ['outliers_general']
 
         # Sum all the lists
         results_column_names = training_column_names + MAE_val_column_names + MAE_test_column_names + \
@@ -162,29 +174,9 @@ class Trainer():
             'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"
         }
 
-        # Check if filename contains mode($n)
-        not_allowed_keys = {
-            'tuning_batch' : r'batches\d',
-            'tuning_lr' : r'lr\d',
-            'around_exploration' : r'RE\d'
-        }
+        file_name = self.file_name
 
-        replacement = {
-            'tuning_batch' : r'batches',
-            'tuning_lr' : r'lr',
-            'around_exploration' : r'RE'
-        }
-
-        if self.extra_route in ['tuning_batch', 'tuning_lr', 'around_exploration']:
-            if 'lineal' in self.file_name:
-                file_name = self.file_name
-
-            if re.search(not_allowed_keys[self.extra_route], self.file_name):
-                file_name = re.sub(not_allowed_keys[self.extra_route], replacement[self.extra_route], self.file_name)
-        else:
-            file_name = self.file_name
-
-        plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, extra_route_name[self.extra_route])
+        plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, extra_route_name[self.step])
 
         pred_path = os.path.join(self.path, 'Predictions')
 
@@ -210,9 +202,12 @@ class Trainer():
 
     def database_size(self):
         '''
-        Return the number of samples used in training
+        Returns
+        -------
+        size `int`:
+            Number of samples used in training, size = n_samples*n_targets
         '''
-        size = len(self.train_dataset)
+        size = len(self.train_dataset) * self.num_targets
         return size
 
     def parameters_count(self):
@@ -259,7 +254,7 @@ class Trainer():
         Build all the required plots
         '''
         if save:
-            fig_regression_path = os.path.join(self.plots_path, 'regression')
+            fig_regression_path = os.path.join(self.plots_path, 'sets_regression')
             if not os.path.isdir(fig_regression_path):
                 os.makedirs(fig_regression_path)
         
@@ -319,8 +314,8 @@ class Trainer():
             for i in range(2):
                 outliers_count = np.count_nonzero(boolean_outliers[i])
 
-                # save_outliers on class
-                self.result_values[f'outliers_{target}'] = outliers_count
+                # # save_outliers on class
+                # self.result_values[f'outliers_{target}'] = outliers_count
 
                 ax_regression[i].plot(y[i], y[i], '-b')
                 ax_regression[i].scatter(y[i][boolean_outliers[i]], y_pred[i][boolean_outliers[i]], color='yellowgreen')
@@ -361,6 +356,8 @@ class Trainer():
             fig_accuracy.savefig(os.path.join(self.plots_path, 'acc.pdf'), dpi=450, format='pdf')
             fig4.savefig(os.path.join(self.plots_path, 'reg.pdf'), dpi=450, format='pdf')
 
+        self.close_plots()
+
     def __build_full_plots(self, y, y_pred, save=True):
         # ========================================== Scaled Plot =====================================================0
         fig_full_regression_path = os.path.join(self.plots_path, 'full_regression')
@@ -369,13 +366,14 @@ class Trainer():
 
         boolean_outliers, _ = self.__get_outliers(y, y_pred)
         
-        MAE, MSE, acc, r2, linear_predicted = self.__compute_metrics(y, y_pred)
+        MAE, MSE, acc, r2 = self.__compute_metrics(y, y_pred)
 
+        outliers_general = 0
         for i, target in enumerate(self.targets):
             # Variable assingment
             y_target = y[:,i].flatten()
             ytarget_pred = y_pred[:,i].flatten()
-            linear_predicted_target = linear_predicted[:,i].flatten()
+            # linear_predicted_target = linear_predicted[:,i].flatten()
 
             # Regression plot
             fig_full, ax = plt.subplots(1)
@@ -390,7 +388,11 @@ class Trainer():
             ax.set_xlabel('y')
             ax.set_ylabel('y_pred')
 
-            ax.set_title(f'r2 = {r2[target]:.4f}      outliers count = {np.count_nonzero(boolean_outliers[target]) }', weight='bold')
+            outliers_count = np.count_nonzero(boolean_outliers[target])
+            self.result_values[f'outliers_{target}'] = outliers_count
+            outliers_general += outliers_count
+
+            ax.set_title(f'r2 = {r2[target]:.4f}      outliers count = {outliers_count}', weight='bold')
 
             textstr = '\n'.join([
                 f'MAE = {MAE[target]:.4f}',
@@ -408,6 +410,9 @@ class Trainer():
             if save:
                 fig_full.savefig(os.path.join(fig_full_regression_path, f"{target.replace('/', '-')}_full.pdf"), dpi=450, format='pdf')
         
+        # update general outliers
+        self.result_values['outliers_general'] = outliers_general
+
         # ================================== Unscaled Plot ===========================================
         if self.config.inputs['scale_y'] == True or self.config.custom['lineal_output'] == False:
             y_unscaled = self.processer.y_unscale_routine(y)
@@ -415,7 +420,7 @@ class Trainer():
 
             boolean_outliers, _ = self.__get_outliers(y_unscaled, y_unscaled_pred)
                 
-            MAE, MSE, acc, r2, linear_predicted = self.__compute_metrics(y_unscaled, y_unscaled_pred)
+            MAE, MSE, acc, r2 = self.__compute_metrics(y_unscaled, y_unscaled_pred)
 
             fig_full_unscaled_path = os.path.join(self.plots_path, 'full_unscalled_regression')
             if not os.path.isdir(fig_full_unscaled_path):
@@ -425,7 +430,7 @@ class Trainer():
                 # variable assingment
                 ytarget_unscaled = y_unscaled[:,i]
                 ytarget_unscaled_pred = y_unscaled_pred[:,i]
-                linear_predicted_target = linear_predicted[:,i]
+                # linear_predicted_target = linear_predicted[:,i]
 
                 # Regression plot
                 fig_full_unscaled, ax_unscaled = plt.subplots(1)
@@ -457,6 +462,8 @@ class Trainer():
                 
                 if save:
                     fig_full_unscaled.savefig(os.path.join(fig_full_unscaled_path, f"{target.replace('/', '-')}_full_unscaled.pdf"), dpi=450, format='pdf')
+
+        self.close_plots()
 
     def show_plots(self, save=False):
         '''
@@ -624,13 +631,13 @@ class Trainer():
                 acc['mean'] = 0
                 r2['mean'] = 1
 
-                linear_predicted = np.ones_like(y[:,i])
+                # linear_predicted = np.ones_like(y[:,i])
 
         else:
             # General metrics
             lineal.fit(y, y_pred)
             r2['general'] = lineal.score(y, y_pred)
-            linear_predicted = lineal.predict(y)
+            # linear_predicted = lineal.predict(y)
 
             MAE['general'] = mean_absolute_error(y, y_pred)
             MSE['general'] = mean_squared_error(y, y_pred)
@@ -651,7 +658,7 @@ class Trainer():
                 
                 acc[target] = abs(1 - MSE[target])
         
-        return MAE, MSE, acc, r2, linear_predicted
+        return MAE, MSE, acc, r2#, linear_predicted
 
     def __get_outliers(self, y, y_pred, full_prediction=False):
         ID = self.ID
@@ -789,7 +796,7 @@ class Trainer():
 
                 loss_validation_list.append(loss_val.item())
 
-                MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, MSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
                 general_acc_validation_list.append(acc_val['general'])
@@ -856,7 +863,7 @@ class Trainer():
 
                 loss_validation_list.append(loss_val.item())
 
-                MAE_val, MSE_val, acc_val, r2_val, _ = self.__compute_metrics(y_val, yval_pred)
+                MAE_val, MSE_val, acc_val, r2_val = self.__compute_metrics(y_val, yval_pred)
 
                 # Store metrics
                 general_acc_validation_list.append(acc_val['general'])
@@ -879,7 +886,7 @@ class Trainer():
         loss_test = loss_test.item()
         loss_test = torch.as_tensor(loss_test)
 
-        MAE_test, MSE_test, acc_test, r2_test, _ = self.__compute_metrics(y_test, ytest_pred)
+        MAE_test, MSE_test, acc_test, r2_test = self.__compute_metrics(y_test, ytest_pred)
 
         et = time.time() # End time
         elapsed_time = et - st
@@ -916,10 +923,10 @@ class Trainer():
         }
 
         self.__build_plots(save=save_plots)
-        plt.close('all')
 
         if write:
             self.save_model(os.path.join(self.plots_path, 'model.pth'))
             self.write_predictions()
+
             self.write_metrics()
             self.write_config(os.path.join(self.plots_path, 'config.ini'))
