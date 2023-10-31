@@ -30,7 +30,7 @@ class Configurator():
         self.hyperparameters = {
             'num_epochs' : 600, # Number of epochs
             'batch_size' : 'All', # Size of batch if 'All', the batch size is the length of dataset
-            'learning_rate' : 0.001 # Learning Rate
+            'learning_rate' : 0.0001 # Learning Rate
         }
 
         # Options

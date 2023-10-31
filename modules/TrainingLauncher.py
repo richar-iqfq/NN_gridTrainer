@@ -118,7 +118,7 @@ class Launcher():
         '''
         if network:
             if len(perform) > 1:
-                print(f'{len(perform)} steps in perform')
+                print(f'{len(perform)} steps in perform!')
                 print('When passing network parameter to trainer, can not define more than one step')
             if 'grid' in perform:
                 print('Grid step not available when passing network')
