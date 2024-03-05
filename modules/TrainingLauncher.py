@@ -45,6 +45,60 @@ class Launcher():
                 k = i
 
         return values[k], values[k+1]
+    
+    def get_learning_rates(self, fixed_decimal=0.01, increments=100, exponential_base=5, max_exponents=4):
+        '''
+            fixed_decimal = 0.01     # lowest limit = 0.0001. IF CERO, increments over the whole the loop is by 0.1 per 0.1.
+                                            # which is convinient for the preliminar analisis of thelearning rate. If different
+                                            # than zero, it takes values around the indicated value.
+            increments = 100           #amount of increments to the fixed decimal, of the same order of the fixed decimal
+
+            exponential_base = 5      # the number that will be added in the position acordingly to the exponential. Must be higher
+                                    # or equal than 1
+            max_exponents = 4
+        '''
+        # this routine is only for proper rounding and for the generation of the numbers
+        r1 = str(exponential_base)
+        r1 =int(r1[::-1].find('.'))
+        r2 = str(fixed_decimal)
+        r2 =int(r2[::-1].find('.'))
+        r3 = r2
+
+        lr_list = []
+
+        # r2 is less than zero for fixed_decimal values less than 0.0001. In those cases the generated lr may be negative or
+        # higher than one. This condition prevents this situation.
+        if r2 < 0:
+            r2 = 1
+        # Setting the proper rounding of the generated lr
+        if r2 > r1:
+            rf = r2
+        else:
+            rf = r1
+
+        for s in range(0, increments):
+            s = fixed_decimal + s * 10 ** (-r2)
+            lr = round(s, 6)
+            if lr == 0:
+                lr = 0.000001
+            lr_list.append(lr)
+            # print(lr, '*/*/*/')
+            for exponent in range(1, max_exponents):
+                add = exponential_base * 10 ** - (exponent + r2)
+                lr = round(s + add, exponent + rf)
+                lr_list.append(lr)
+                # print(lr, '*****')
+            if s == fixed_decimal and r3 > 0:           # for the first loop, also explores lower values than the fixed_decimal
+                for exponent in range(1, max_exponents):
+                    add = exponential_base * 10 ** - (exponent + r2)
+                    lr = round(s - add, exponent + rf)
+                    lr_list.append(lr)
+                    # print(lr,'__+++___')                # values that will be consiered (lower than fixed decimal)
+        
+        learning_rates = np.array(lr_list)
+        filter = learning_rates < 1
+
+        return learning_rates[filter]
 
     def Test_model(self, network, config, overview=True, monitoring=False):
         '''
@@ -153,6 +207,76 @@ class Launcher():
 
         os.system('clear')
         print(f'Working with: {extra_name}\n')
+
+        if 'explore_lr' in perform:
+            print('+'*50)
+            print('Performing learning rate exploration...\n')
+
+            dimension_layer = {
+                1 : (4, ),
+                2 : (4, 2),
+                3 : (6, 4, 2),
+                4 : (4, 6, 4, 2),
+                5 : (4, 6, 6, 4, 2),
+                6 : (4, 6, 6, 6, 4, 2)
+            }
+
+            activation_af = {
+                1 : ('nn.ELU()', 'nn.ReLU()'),
+                2 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()'),
+                3 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()'),
+                4 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()'),
+                5 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()', 'nn.ELU()'),
+                6 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()', 'nn.ELU()', 'nn.ReLU()')
+            }
+
+            for hidden_size in range(start_point, max_hidden_layers+1):
+                Network = self.Networks[hidden_size]
+                print('.'*50)
+                print(Network)
+                print('.'*50, '\n')
+            
+                file = Network + f'{extra_name}.csv'
+            
+                # Set fixed architecture
+                architecture = {
+                    'model' : Network,
+                    'num_targets' : num_targets,
+                    'num_features' : num_features,
+                    'dimension' : dimension_layer[hidden_size],
+                    'activation_functions' : activation_af[hidden_size],
+                    'optimizer' : config.loss['optimizer'],
+                    'criterion' : config.loss['criterion']
+                }
+
+                learning_list = self.get_learning_rates()
+
+                pbar = tqdm(total=len(learning_list), desc='learning rates', colour='green')
+
+                for learning_test in learning_list:
+                    config.update(
+                        learning_rate=float(learning_test)
+                    )
+
+                    tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='explore_lr', workers=workers)
+                    
+                    n_parameters = tr.parameters_count()
+                    n_train = tr.database_size()
+
+                    if n_parameters <= 0.12*n_train:
+                        try:
+                            time.sleep(1)
+                            tr.start_training(save_plots=save_plots)
+
+                            tr.close_plots()
+                            del(tr)
+                        except:
+                            pbar.update()
+                            continue
+
+                    pbar.update()
+                
+                del(pbar)
 
         if 'grid' in perform:
 

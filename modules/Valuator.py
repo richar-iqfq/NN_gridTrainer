@@ -28,6 +28,7 @@ class Valuator():
     def __init__(self, config, hidden_layers=4, step='random_state', reader_criteria='outliers_count', mode='complete', workers=0):
         # Path names
         self.path_name = {
+            'explore_lr' : '00_explore_lr',
             'grid' : '01_grid',
             'optimization' : '02_optimization',
             'tuning_batch' : '03_tuning_batch',
@@ -125,6 +126,7 @@ class Valuator():
             'optimization' : f'{self.optimizer}_{self.criterion}',
             'tuning_batch' : f'batches_{self.batch_size}',
             'tuning_lr' : f'lr_{self.learning_rate}',
+            'explore_lr' : f'lr_{self.learning_rate}',
             'recovering' : f'lr_{self.learning_rate}',
             'random_state' : f"rs_{self.config.custom['random_state']}",
             'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"

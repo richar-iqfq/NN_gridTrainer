@@ -26,6 +26,7 @@ class Reader():
         self.type = type
 
         self.path_name = {
+            'explore_lr' : '00_explore_lr',
             'grid' : '01_grid',
             'optimization' : '02_optimization',
             'tuning_batch' : '03_tuning_batch',
@@ -38,7 +39,7 @@ class Reader():
 
         path = os.path.join('Training_results', type, self.path_name[step])
     
-        files = [file for file in os.listdir(path) if extra_keyword in file]
+        files = [file for file in os.listdir(path) if extra_keyword in file and '.~lock' not in file]
 
         self.files = [os.path.join(path, file) for file in files if self.name in file]
 
@@ -70,7 +71,11 @@ class Reader():
             total_df = pd.concat([total_df, df], axis=0)
 
         # Filter by validation results
-        total_df = total_df[(total_df['MAE_val_general'] <= 1) & (total_df['acc_val_general'] > 0) & (total_df['r2_val_general'] < 1)]
+        for column in total_df.columns:
+            if 'r2' in column:
+                total_df = total_df[(total_df[column] < 1)]
+            if 'acc' in column:
+                total_df = total_df[(total_df[column] > 0)]
 
         # Sort results by criteria
         if criteria != 'outliers_count':

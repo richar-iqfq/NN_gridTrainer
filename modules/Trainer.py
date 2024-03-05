@@ -40,6 +40,7 @@ class Trainer():
     def __init__(self, file_name, architecture, hyperparameters, config, mode='complete', workers=0, step=None):
         # Path names
         self.path_name = {
+            'explore_lr' : '00_explore_lr',
             'grid' : '01_grid',
             'optimization' : '02_optimization',
             'tuning_batch' : '03_tuning_batch',
@@ -169,6 +170,7 @@ class Trainer():
             'optimization' : f'{self.optim}_{self.crit}',
             'tuning_batch' : f'batches_{self.batch_size}',
             'tuning_lr' : f'lr_{self.learning_rate}',
+            'explore_lr' : f'lr_{self.learning_rate}',
             'recovering' : f'lr_{self.learning_rate}',
             'random_state' : f"rs_{self.config.custom['random_state']}",
             'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"
@@ -811,6 +813,10 @@ class Trainer():
                 if np.mean(general_acc_validation_list[-15::]) == 0:
                     break
 
+                for i, target in enumerate(self.targets):
+                    if yval_pred[:,i].mean() == 0:
+                        break
+
             # Deep copy the model if monitoring
             if monitoring:
                 if acc_val['general'] > best_mean_acc:
@@ -825,7 +831,7 @@ class Trainer():
                 if (epoch+1)%10 == 0:
                     print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {RMSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f}", end='\r')
 
-        # ===== Restore best when monitoring =====
+        # ===== Restore best weights when monitoring =====
         if monitoring:
             print(f'\nBetter performance: epoch = {best_epoch} ___ acc = {best_general_acc}')
 

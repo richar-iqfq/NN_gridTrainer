@@ -53,3 +53,8 @@ def get_learning_rates(fixed_decimal, increments, exponential_base, max_exponent
     filter = learning_rates < 1
 
     return learning_rates[filter]
+
+lr = get_learning_rates(0.1, 100, 5, 2)
+
+for l in lr:
+    print(l)
