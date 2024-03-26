@@ -12,9 +12,11 @@ import numpy as np
 import copy
 import re
 
+from modules.Configurator import Configurator
 from modules.PreprocessData import PreprocessData
 from modules.DatabaseLoader import DatabaseLoader
 from modules.DatasetBuilder import create_datasets
+from modules.Outliers import Outliers
 
 # Here we import the different models for trainning
 from modules.Models import (
@@ -37,7 +39,7 @@ class Trainer():
         File name for the results folder.
 
     '''
-    def __init__(self, file_name, architecture, hyperparameters, config, mode='complete', workers=0, step=None):
+    def __init__(self, file_name, architecture, hyperparameters, workers=0, step=None):
         # Path names
         self.path_name = {
             'explore_lr' : '00_explore_lr',
@@ -52,22 +54,22 @@ class Trainer():
         }
         
         # main config object
-        self.config = config
+        self.config = Configurator()
         
         # Targets
-        self.targets = self.config.json['targets']
+        self.targets = self.config.get_json('targets')
 
         # Backend to run in tensor cores
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
         # Set threads limit to avoid overload of cpu
-        if config.cuda['limit_threads']:
+        if self.config.get_cuda('limit_threads'):
             torch.set_num_threads(1)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # Device
 
-        self.path = os.path.join('Training_results', mode) # Path to store the results
+        self.path = os.path.join('Training_results') # Path to store the results
         
         if step:
             self.path = os.path.join(self.path, self.path_name[step])
@@ -76,7 +78,6 @@ class Trainer():
         if not os.path.isdir(self.path):
             os.makedirs(self.path)
         
-        self.mode = mode # Level of training (complete, recovering)
         self.file_name = file_name # File where you'll write the results
         
         # Dictionary to store the training results
@@ -112,21 +113,22 @@ class Trainer():
         self.outliers_count = {}
         
         # Drop molecules
-        if config.configurations['drop']:
-            self.drop = config.inputs['drop_file']
+        if self.config.get_configurations('drop'):
+            self.drop = self.config.get_inputs('drop_file')
         else:
             self.drop = False
 
         # Loader Classes
-        self.processer = PreprocessData(config)
-        self.loader = DatabaseLoader(config)
+        self.processer = PreprocessData()
+        self.loader = DatabaseLoader()
+        self.outliers_calc = Outliers()
 
         # ID and data values (x and y already scaled)
         self.ID, self.x, self.y = self.processer.Retrieve_Processed()
 
         # datasets
-        self.random_state = config.custom['random_state']
-        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets(self.processer)
+        self.random_state = self.config.get_custom('random_state')
+        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets()
 
     def __get_column_names(self):
         standard_column_names = [ 
@@ -172,7 +174,7 @@ class Trainer():
             'tuning_lr' : f'lr_{self.learning_rate}',
             'explore_lr' : f'lr_{self.learning_rate}',
             'recovering' : f'lr_{self.learning_rate}',
-            'random_state' : f"rs_{self.config.custom['random_state']}",
+            'random_state' : f"rs_{self.config.get_custom('random_state')}",
             'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"
         }
 
@@ -294,8 +296,8 @@ class Trainer():
         r2_val = self.values_plot['r2_val']
         r2_test = self.values_plot['r2_test']
 
-        boolean_outliers_val, _ = self.__get_outliers(y_val, yval_pred)
-        boolean_outliers_test, _ = self.__get_outliers(y_test, ytest_pred)
+        boolean_outliers_val, _ = self.outliers_calc.get_total_outliers(self.ID, y_val, yval_pred)
+        boolean_outliers_test, _ = self.outliers_calc.get_total_outliers(self.ID, y_test, ytest_pred)
 
         for i, target in enumerate(self.targets):
             fig_regression, ax_regression = plt.subplots(2)
@@ -366,7 +368,7 @@ class Trainer():
         if not os.path.isdir(fig_full_regression_path):
             os.makedirs(fig_full_regression_path)
 
-        boolean_outliers, _ = self.__get_outliers(y, y_pred)
+        boolean_outliers, _ = self.outliers_calc.get_total_outliers(self.ID, y, y_pred)
         
         MAE, RMSE, acc, r2 = self.__compute_metrics(y, y_pred)
 
@@ -416,11 +418,11 @@ class Trainer():
         self.result_values['outliers_general'] = outliers_general
 
         # ================================== Unscaled Plot ===========================================
-        if self.config.inputs['scale_y'] == True or self.config.custom['lineal_output'] == False:
+        if self.config.get_inputs('scale_y') == True or self.config.get_custom('lineal_output') == False:
             y_unscaled = self.processer.y_unscale_routine(y)
             y_unscaled_pred = self.processer.y_unscale_routine(y_pred)
 
-            boolean_outliers, _ = self.__get_outliers(y_unscaled, y_unscaled_pred)
+            boolean_outliers, _ = self.outliers_calc.get_total_outliers(self.ID, y_unscaled, y_unscaled_pred)
                 
             MAE, RMSE, acc, r2 = self.__compute_metrics(y_unscaled, y_unscaled_pred)
 
@@ -554,7 +556,7 @@ class Trainer():
         predictions.to_csv(os.path.join(self.plots_path, 'predictions.csv'), index=False)
         # outliers_df.to_csv(os.path.join(self.plots_path, 'outliers.csv'), index=False)
 
-        if self.config.configurations['save_full_predictions']:
+        if self.config.get_configurations('save_full_predictions'):
             self.__save_full_predictions(x, y_pred)
 
     def write_config(self, path):
@@ -578,7 +580,7 @@ class Trainer():
         if self.batch_size == 'All':
             bz = len(self.train_dataset)
         else:
-            bz = self.batch_size
+            bz = int(self.batch_size)
 
         train_loader = DataLoader(dataset=self.train_dataset,
                             batch_size=bz,
@@ -636,11 +638,6 @@ class Trainer():
                 # linear_predicted = np.ones_like(y[:,i])
 
         else:
-            # General metrics
-            lineal.fit(y, y_pred)
-            r2['general'] = lineal.score(y, y_pred)
-            # linear_predicted = lineal.predict(y)
-
             MAE['general'] = mean_absolute_error(y, y_pred)
             
             MSE = mean_squared_error(y, y_pred)
@@ -648,14 +645,21 @@ class Trainer():
             
             acc['general'] = abs(1 - RMSE['general'])
 
+            # Initialize r2 general
+            r2_general = 0
+
+            # Displacement to avoid zero values
+            alpha = 5
+            
             # For target metrics
             for i, target in enumerate(self.targets):
-                y_target = y[:,i].reshape(-1, 1)
-                y_pred_target = y_pred[:,i].reshape(-1, 1)
+                y_target = y[:,i]
+                y_pred_target = y_pred[:,i]
 
-                lineal.fit(y_target, y_pred_target)
-                
-                r2[target] = lineal.score(y_target, y_pred_target)
+                r2_target = np.corrcoef(y_target+alpha, y_pred_target+alpha)[0,1]**2
+                r2[target] = r2_target if r2_target else 0
+
+                r2_general += r2_target
                 
                 MAE[target] = mean_absolute_error(y_target, y_pred_target)
                 
@@ -664,11 +668,13 @@ class Trainer():
                 
                 acc[target] = abs(1 - RMSE[target])
         
-        return MAE, RMSE, acc, r2#, linear_predicted
+            r2['general'] = r2_general/len(self.targets)
+
+        return MAE, RMSE, acc, r2
 
     def __get_outliers(self, y, y_pred, full_prediction=False):
         ID = self.ID
-        percent = self.config.configurations['percent_outliers']
+        percent = self.config.get_configurations('percent_outliers')
         tol = percent*100
 
         boolean_outliers = {}
@@ -813,6 +819,9 @@ class Trainer():
                 if np.mean(general_acc_validation_list[-15::]) == 0:
                     break
 
+                if np.mean(general_r2_validation_list[-5::]) == 1:
+                    break
+
                 for i, target in enumerate(self.targets):
                     if yval_pred[:,i].mean() == 0:
                         break
@@ -833,7 +842,7 @@ class Trainer():
 
         # ===== Restore best weights when monitoring =====
         if monitoring:
-            print(f'\nBetter performance: epoch = {best_epoch} ___ acc = {best_general_acc}')
+            # print(f'\nBetter performance: epoch = {best_epoch} ___ acc = {best_general_acc}')
 
             self.config.update(
                 best_acc=best_general_acc,

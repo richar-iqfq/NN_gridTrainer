@@ -4,16 +4,18 @@ import os
 from modules.DatabaseLoader import DatabaseLoader
 from sklearn.model_selection import train_test_split
 
+from modules.Configurator import Configurator
+
 class ParameterGuard():
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
+        self.config = Configurator()
         
-        self.train_ID = config.inputs['train_ID']
+        self.train_ID = self.config.get_inputs('train_ID')
 
-        self.features = config.json['features']
-        self.targets = config.json['targets']
+        self.features = self.config.get_json('features')
+        self.targets = self.config.get_json('targets')
 
-        self.random_state = config.custom['random_state']
+        self.random_state = self.config.get_custom('random_state')
 
         self.input_path = os.path.join('parameters', 'inputs')
         self.output_path = os.path.join('parameters', 'outputs')
@@ -99,7 +101,7 @@ class ParameterGuard():
 
         # If not x and y sets given, executes DatabaseLoader
         if len(x) == 0 or len(y) == 0:
-            db_loader = DatabaseLoader(self.config)
+            db_loader = DatabaseLoader()
 
             # Load data
             DataFrame = db_loader.load_database()

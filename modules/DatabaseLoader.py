@@ -1,20 +1,20 @@
 import numpy as np
 import pandas as pd
 
+from modules.Configurator import Configurator
+
 class DatabaseLoader():
-    def __init__(self, config):
+    def __init__(self):
         '''
         Main class for the loading and cleaning of data.
-
-        Parameters
-        ----------
-        config: `object` of `class` Configurator.
         '''
-        # Variable assingment
-        self.features = config.json['features']
-        self.targets = config.json['targets']
+        self.config : Configurator = Configurator()
 
-        self.DataFrame = pd.read_csv(config.database_path)
+        # Variable assingment
+        self.features = self.config.get_json('features')
+        self.targets = self.config.get_json('targets')
+
+        self.DataFrame = pd.read_csv(self.config.database_path)
 
         self.initial_size = len(self.DataFrame)
         self.after_unconverged_size = 0
@@ -23,9 +23,9 @@ class DatabaseLoader():
         self.final_size = 0
         self.is_droping = False
 
-        if config.configurations['drop']:
+        if self.config.get_configurations('drop'):
             self.is_droping = True
-            self.drop_Frame = pd.read_csv(config.inputs['drop_file'])
+            self.drop_Frame = pd.read_csv(self.config.get_inputs('drop_file'))
         else:
             self.drop_Frame = False
 

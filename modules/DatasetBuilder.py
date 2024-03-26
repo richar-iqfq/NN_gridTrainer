@@ -1,14 +1,12 @@
 import torch
 from torch.utils.data import Dataset
 
+from modules.PreprocessData import PreprocessData
+
 #================================ Dataset preparation =================================
-def create_datasets(processer):
+def create_datasets() -> tuple:
     '''
     Main function to build the Dataset classes for training.
-
-    Parameters
-    ----------
-    processer: `object` of `class` PreprocessData
 
     Returns
     -------
@@ -18,6 +16,8 @@ def create_datasets(processer):
 
     test_dataset: Pytorch test dataset class
     '''
+    # Processer
+    processer = PreprocessData()
 
     x_train, x_val, x_test, y_train, y_val, y_test = processer.Retrieve_Splitted()
 

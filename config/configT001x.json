@@ -59,8 +59,6 @@
             "Tc(K)",
             "Pc(bar)",
             "Vc(cm3/mol)",
-            "RHOC(g/cm3)",
-            "Zc",
             "OMEGA"
         ]
     },

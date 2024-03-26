@@ -20,5 +20,5 @@ if __name__=='__main__':
         save_full_predictions = False
     )
 
-    valuator = Valuator(config, hidden_layers, step, criteria)
+    valuator = Valuator(hidden_layers, step, criteria)
     valuator.run()

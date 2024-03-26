@@ -4,9 +4,10 @@ from sklearn.model_selection import train_test_split
 
 from modules.DatabaseLoader import DatabaseLoader
 from modules.ParameterGuard import ParameterGuard
+from modules.Configurator import Configurator
 
 class PreprocessData():
-    def __init__(self, config):
+    def __init__(self):
         '''
         Preprocess data, scale, unscale and assures if parameters are saved on
         disk
@@ -15,27 +16,27 @@ class PreprocessData():
         ----------
         config object of `class` Configurator
         '''
-        self.config = config
+        self.config = Configurator()
 
-        self.features = config.json['features']
+        self.features = self.config.get_json('features')
         self.n_features = len(self.features)
 
-        self.targets = config.json['targets']
+        self.targets = self.config.get_json('targets')
         self.n_targets = len(self.targets)
 
-        self.v_min = config.inputs['v_min']
-        self.v_max = config.inputs['v_max']
+        self.v_min = self.config.get_inputs('v_min')
+        self.v_max = self.config.get_inputs('v_max')
 
-        self.train_ID = config.inputs['train_ID']
-        self.scale_y = config.inputs['scale_y']
+        self.train_ID = self.config.get_inputs('train_ID')
+        self.scale_y = self.config.get_inputs('scale_y')
         
-        self.random_state = config.custom['random_state']
+        self.random_state = self.config.get_custom('random_state')
 
         # Build the data structure
         self.ID, self.x, self.y = self.__build_structure()
 
         # Compute parameters
-        self.guard = ParameterGuard(self.config)
+        self.guard = ParameterGuard()
         self.guard.save(self.x, self.y)
 
         # Load parameters in class
@@ -61,7 +62,7 @@ class PreprocessData():
         Build the data structure, ID, x and y arrays.
         '''
         # Load DataFrame with data
-        Loader = DatabaseLoader(self.config)
+        Loader = DatabaseLoader()
         DataFrame = Loader.load_database()
 
         # Define ID values

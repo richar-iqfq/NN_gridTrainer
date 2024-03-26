@@ -13,17 +13,13 @@ class Reader():
     extra_keyword (`str`):
         Extra keywords on file
 
-    type (`str`):
-        Training type: 'complete'
-
     Methods
     -------
-    recover_best(n_networks=1):
+    recover_best(n_values=1):
          Returns a dictionary with the better trained networks
     '''
-    def __init__(self, hidden_layers, extra_keyword, type='complete', step='grid'):
+    def __init__(self, hidden_layers, extra_keyword, step='grid'):
         self.name = f'Net_{hidden_layers}Hlayer'
-        self.type = type
 
         self.path_name = {
             'explore_lr' : '00_explore_lr',
@@ -37,7 +33,7 @@ class Reader():
             'recovering' : 'recovering' 
         }
 
-        path = os.path.join('Training_results', type, self.path_name[step])
+        path = os.path.join('Training_results', self.path_name[step])
     
         files = [file for file in os.listdir(path) if extra_keyword in file and '.~lock' not in file]
 
@@ -46,13 +42,13 @@ class Reader():
         if len(self.files) == 0:
             raise Exception('Any files found for the given structure')
 
-    def recover_best(self, n_networks=1, criteria='acc_val_general'):
+    def recover_best(self, n_values=1, criteria='acc_val_general', worst=False):
         '''
         Search the better networks for the training type given
 
         Parameters
         ----------
-        n_networks (`int`):
+        n_values (`int`):
             Number of networks to return in dict
 
         Returns
@@ -83,7 +79,7 @@ class Reader():
         else:
             total_df = total_df.sort_values([criteria], ignore_index=True, ascending=True)
 
-        index = [i for i in range(n_networks)]
+        index = [i for i in range(n_values)]
 
         # Check if total_df is not empty
         if len(total_df) == 0:
@@ -94,28 +90,33 @@ class Reader():
         sel_df = total_df.iloc[index]
 
         # Build list to store data
-        better_networks = [0]*n_networks
+        better_networks = [0]*n_values
 
-        for i in range(n_networks):
-            dimension = sel_df['dimension'].iloc[i]
+        for i in range(n_values):
+            if worst:
+                j = -i
+            else:
+                j = i
+            
+            dimension = sel_df['dimension'].iloc[j]
             dimension = dimension.replace('|', ',')
 
-            architecture = sel_df['architecture'].iloc[i]
+            architecture = sel_df['architecture'].iloc[j]
             architecture = architecture.replace('|', ', ')
             
-            optimizer = sel_df['optimizer'].iloc[i]
-            loss_function = sel_df['loss_function'].iloc[i]
+            optimizer = sel_df['optimizer'].iloc[j]
+            loss_function = sel_df['loss_function'].iloc[j]
 
-            epochs = sel_df['epochs'].iloc[i]
-            batch = sel_df['batch_size'].iloc[i]
-            lr = sel_df['lr'].iloc[i]
+            epochs = sel_df['epochs'].iloc[j]
+            batch = sel_df['batch_size'].iloc[j]
+            lr = sel_df['lr'].iloc[j]
             learning_rate = str(lr)[0:9]
-            acc = sel_df['acc_val_general'].iloc[i]
-            r2 = sel_df['r2_val_general'].iloc[i]
-            outliers_count = sel_df['outliers_general'].iloc[i]
-            random_state = sel_df['random_state'].iloc[i]
+            acc = sel_df['acc_val_general'].iloc[j]
+            r2 = sel_df['r2_val_general'].iloc[j]
+            outliers_count = sel_df['outliers_general'].iloc[j]
+            random_state = sel_df['random_state'].iloc[j]
 
-            better_networks[i] = {
+            better_networks[j] = {
                 'hidden_layers' : len(eval(dimension)),
                 'dimension' : eval(dimension),
                 'activation_functions' : eval(architecture),

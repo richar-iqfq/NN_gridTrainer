@@ -12,6 +12,8 @@ from modules.PreprocessData import PreprocessData
 from modules.DatasetBuilder import create_datasets
 from modules.ResultsReader import Reader
 from modules.DatabaseLoader import DatabaseLoader
+from modules.Configurator import Configurator
+from modules.Outliers import Outliers
 
 # Here we import the different models for trainning
 from modules.Models import (
@@ -25,7 +27,7 @@ from modules.Models import (
 
 #====================================== Valuator ==============================================
 class Valuator():
-    def __init__(self, config, hidden_layers=4, step='random_state', reader_criteria='outliers_count', mode='complete', workers=0):
+    def __init__(self, hidden_layers=4, step='random_state', reader_criteria='outliers_count', mode='complete', workers=0):
         # Path names
         self.path_name = {
             'explore_lr' : '00_explore_lr',
@@ -40,21 +42,21 @@ class Valuator():
         }
         
         # main config object
-        self.config = config
+        self.config = Configurator()
         # extra route
         self.step = step
         # Targets
-        self.targets = self.config.json['targets']
-        self.num_targets = self.config.json['num_targets']
+        self.targets = self.config.get_json('targets')
+        self.num_targets = self.config.get_json('num_targets')
         # Features
-        self.features = self.config.json['features']
-        self.num_features = self.config.json['num_features']
+        self.features = self.config.get_json('features')
+        self.num_features = self.config.get_json('num_features')
 
         # Backend to run in tensor cores
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
-        if config.cuda['limit_threads']:
+        if self.config.get_cuda('limit_threads'):
             torch.set_num_threads(1)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # Device
@@ -70,7 +72,7 @@ class Valuator():
             6 : 'Net_6Hlayer'
         }
 
-        self.file_name = config.custom['extra_filename']
+        self.file_name = self.config.get_custom('extra_filename')
         self.names = [ 
             'dimension', 'architecture', 'parameters', 'optimizer', 'loss_function', 'epochs',
             'batch_size', 'lr', 'training_time', 'random_state', 'train_loss', 'val_loss',
@@ -79,10 +81,11 @@ class Valuator():
         ] # Column names for the results file
 
         # Preprocesser
-        self.processer = PreprocessData(self.config)
+        self.processer = PreprocessData()
 
         # Loader
-        self.loader = DatabaseLoader(self.config)
+        self.loader = DatabaseLoader()
+        self.outliers_calc = Outliers()
 
         # Get better network
         self.netReader = Reader(hidden_layers, self.file_name, type='complete', step=self.step)
@@ -103,13 +106,13 @@ class Valuator():
         self.outliers_count = 0
         self.Outliers_DF = []
 
-        if config.configurations['drop']:
-            self.drop = config.inputs['drop_file']
+        if self.config.get_configurations('drop'):
+            self.drop = self.config.get_inputs('drop_file')
         else:
             self.drop = False
 
         # datasets
-        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets(self.processer)
+        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets()
 
         # Load model
         self.load_model()
@@ -128,7 +131,7 @@ class Valuator():
             'tuning_lr' : f'lr_{self.learning_rate}',
             'explore_lr' : f'lr_{self.learning_rate}',
             'recovering' : f'lr_{self.learning_rate}',
-            'random_state' : f"rs_{self.config.custom['random_state']}",
+            'random_state' : f"rs_{self.config.get_custom('random_state')}",
             'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"
         }
 
@@ -189,8 +192,8 @@ class Valuator():
 
         return y_pred, loss_val
 
-    def __get_outliers(self, y, y_pred):
-        percent = self.config.configurations['percent_outliers']
+    def __get_outliers(self, y, y_pred, strategy='percentual_error', strategy_perc=0.08):
+        percent = self.config.get_configurations('percent_outliers')
         tol = percent*100
 
         boolean_outliers = {}
@@ -310,9 +313,9 @@ class Valuator():
         
         y_pred, _ = self.eval_model(x, y)
 
-        boolean_outliers = self.__get_outliers(y, y_pred.numpy())
+        boolean_outliers = self.outliers_calc.get_total_outliers(ID, y, y_pred.numpy())
 
-        if self.config.configurations['save_full_predictions']:
+        if self.config.get_configurations('save_full_predictions'):
             pd.set_option('mode.chained_assignment', None)
 
             dataFrame = self.loader.load_database()

@@ -1,26 +1,24 @@
-from modules.ResultsReader import Reader
 import os
-from modules.Trainer import Trainer
 import time
 from tqdm import tqdm
-import torch.nn as nn
 from scipy.optimize import minimize
 import itertools
 import numpy as np
 import copy
+import logging
+
+from modules.Configurator import Configurator
+from modules.ResultsReader import Reader
+from modules.Recorder import Recorder
+
+from .Trainer import Trainer
 
 class Launcher():
     '''
-    Class to launch multiple architectures to training and watch the progress in
-    status bar
-
-    Methods
-    -------
-    Run_complete(Hidden_Layers, Hyperparamenters, options, custom=None, perform=['grid', 'optimization', 'tuning_batch', 'tuning_lr'])
-        Start a complete analysis over all configurations of 5HL in an enssamble mode.
+    Customizable class to launch multiple architectures to training and watch the progress in status bar
     '''
-    def __init__(self):
-        self.Networks = {
+    def __init__(self, perform: list, tol: float=0.12):
+        self.Networks: dict = {
             1 : 'Net_1Hlayer',
             2 : 'Net_2Hlayer',
             3 : 'Net_3Hlayer',
@@ -29,7 +27,92 @@ class Launcher():
             6 : 'Net_6Hlayer'
         }
 
-    def get_batches(self, batch_size):
+        # Hidden size to start the searching after the grid step
+        self.initial_hidden_size_after_grid: int = 1
+
+        # config property
+        self.config: Configurator = Configurator()
+
+        # Record training
+        self.record_training(perform)
+
+        # Perform steps
+        self.perform: list = perform
+
+        # Number of parameters tolerance
+        self.tol: float = tol
+
+        # Architecture loading
+        self.num_features: int = self.config.get_json('num_features')
+        self.num_targets: int = self.config.get_json('num_targets')
+        self.optimizers: list = self.config.get_json('optimizers')
+        self.loss_functions: list = self.config.get_json('loss_functions')
+        self.af_list: tuple = copy.deepcopy(self.config.get_json('af_valid'))
+        self.af_list.remove('None')
+
+        # Inputs
+        self.parted: int = self.config.get_custom('parted')
+        self.extra_name: str = self.config.get_custom('extra_filename')
+        self.seed: int = self.config.get_custom('seed')
+        self.lineal_output: bool = self.config.get_inputs('lineal_output')
+
+        # Configurations
+        self.max_hidden_layers: int = self.config.get_configurations('max_hidden_layers')
+        self.min_neurons: int = self.config.get_configurations('min_neurons')
+        self.max_neurons: int = self.config.get_configurations('max_neurons')
+        self.lr_range: float = self.config.get_configurations('learning_rate_range')
+        self.bz_range: tuple = self.config.get_configurations('batch_size_range')
+        self.tries: int = self.config.get_configurations('n_tries')
+        self.n_networks: int = self.config.get_configurations('n_networks')
+        self.start_point: int = self.config.get_configurations('start_point')
+        self.save_plots: bool = self.config.get_configurations('save_plots')
+        self.reader_criteria: str = self.config.get_configurations('reader_criteria')
+        self.workers: int = self.config.get_configurations('workers')
+        self.train_ID: str = self.config.get_inputs('train_ID')
+
+        logging.basicConfig(filename=f'logs/{self.train_ID}.log', level=logging.INFO)
+
+    def launch(self, trainer: Trainer) ->tuple:
+        '''
+        launch the training and assure the number of parameters is on range
+
+        Parameters
+        ----------
+        trainer `object of class Trainer`
+        '''
+        n_parameters = trainer.parameters_count()
+        n_train = trainer.database_size()
+        
+        # flag to know if training went wrong
+        flag = True
+        
+        if self.tol <= 0.12:
+            if n_parameters <= self.tol*n_train:
+                # try:
+                time.sleep(1)
+                trainer.start_training(save_plots=self.save_plots, monitoring=True)
+
+                trainer.close_plots()
+                # except:
+                #     flag = False
+        else:
+            if n_parameters > 0.12*n_train and n_parameters <= self.tol*n_train:
+                try:
+                    time.sleep(1)
+                    trainer.start_training(save_plots=self.save_plots, monitoring=True)
+
+                    trainer.close_plots()
+                except:
+                    flag = False
+
+        return flag, trainer
+
+    def record_training(self, perform: list) -> None:
+        recorder = Recorder()
+
+        recorder.save_values(perform)
+
+    def get_adjacent_batches(self, batch_size: int) -> tuple:
         values = [16, 32, 64, 128, 256, 512, 1024, 2048]
 
         diff = 2048
@@ -45,17 +128,17 @@ class Launcher():
                 k = i
 
         return values[k], values[k+1]
-    
-    def get_learning_rates(self, fixed_decimal=0.01, increments=100, exponential_base=5, max_exponents=4):
-        '''
-            fixed_decimal = 0.01     # lowest limit = 0.0001. IF CERO, increments over the whole the loop is by 0.1 per 0.1.
-                                            # which is convinient for the preliminar analisis of thelearning rate. If different
-                                            # than zero, it takes values around the indicated value.
-            increments = 100           #amount of increments to the fixed decimal, of the same order of the fixed decimal
 
-            exponential_base = 5      # the number that will be added in the position acordingly to the exponential. Must be higher
-                                    # or equal than 1
-            max_exponents = 4
+    def get_around_learning_rates(self, fixed_decimal: float=0.01, increments: int=100, exponential_base:int=5, max_exponents:int=4) -> np.ndarray:
+        '''
+        fixed_decimal = 0.01     # lowest limit = 0.0001. IF CERO, increments over the whole the loop is by 0.1 per 0.1.
+                                        # which is convinient for the preliminar analisis of thelearning rate. If different
+                                        # than zero, it takes values around the indicated value.
+        increments = 100           #amount of increments to the fixed decimal, of the same order of the fixed decimal
+
+        exponential_base = 5      # the number that will be added in the position acordingly to the exponential. Must be higher
+                                # or equal than 1
+        max_exponents = 4
         '''
         # this routine is only for proper rounding and for the generation of the numbers
         r1 = str(exponential_base)
@@ -100,19 +183,899 @@ class Launcher():
 
         return learning_rates[filter]
 
-    def Test_model(self, network, config, overview=True, monitoring=False):
+    def get_random_activation_functions(self, n_functions: int, seed: int=None) -> list:
         '''
-        Run an specific model and save it to folder Models/recovering
+        Return a list with all the possible combinations of `n` activation functions
+        readed from `parameters`.
+
+        Parameters
+        ----------
+        n_functions (`int`):
+            Number of activation functions needed.
+        
+        oN (`bool`):
+            if True the last activation function will set to None. Deafaul is False
+        
+        seed (`int` or `None`):
+            if a value is given, will set a random seed to get the random values
+            
+        Returns
+        -------
+        P (`list` of `str`): 
+            List with the activation functions
+        '''
+        af_valid = self.af_list
+
+        if self.lineal_output:
+            P = [p for p in itertools.product(af_valid, repeat=n_functions-1)] # Too many choices
+        else:
+            P = [p for p in itertools.product(af_valid, repeat=n_functions)] # Too many choices
+        
+        AF_combinations = []
+
+        rnd = np.random.RandomState(seed=seed)
+        index_list = rnd.randint(0, len(P), 50)
+
+        for index in index_list:
+            AF = P[index]
+            if self.lineal_output:
+                AF = list(AF)
+                AF.append('None')
+                AF = tuple(AF)
+
+            AF_combinations.append(AF)
+
+        return AF_combinations
+    
+    def get_random_layer_sizes(self, hidden_layers: int, seed: int=None) -> list:
+        '''
+        Return a list with all the possible combinations of `n` hidden layers and max `m` neurons
+        of each layer from the values `[4,6,8,10,12,...,m]`.
+
+        Parameters
+        ----------
+        hidden_layers (`int`):
+            Number of hidden layers.
+        
+        Returns
+        -------
+        P `list` `int`: List with the number of neurons for each layer combinations. 
+        '''
+        # values1 = [i for i in range(4, neurons+1) if i % 2 == 0]
+        # values2 = [i for i in range(3, neurons+1) if i % 2 != 0]
+
+        values = [i for i in range(3, self.max_neurons+1)]
+
+        T = [p for p in itertools.product(values, repeat=hidden_layers)] # Too many choices
+
+        LY_combinations = []
+
+        rnd = np.random.RandomState(seed=seed)
+        index_list = rnd.randint(0, len(T), 30)
+
+        for index in index_list:
+            LY_combinations.append(T[index])
+
+        return LY_combinations
+
+    def recover_network(self, hidden_layers: int, step: str, worst: bool=False) -> list:
+        # Load better network parameters
+        try:
+            rd = Reader(hidden_layers, f'_{hidden_layers}Hlayer{self.extra_name}', step=step)
+        except:
+            return None
+        
+        better_network = rd.recover_best(n_values=self.n_networks, criteria=self.reader_criteria, worst=worst)
+        
+        return better_network
+
+    def explore_lr(self, previous_step: str, network: dict=False) -> None:
+        pass
+
+    def grid(self, previous_step: str, network: dict=False, modes: list=['assembly', 'random']) -> None:
+        actual_step = 'grid'
+
+        logging.info('Started grid search')
+
+        print('+'*50)
+        print('Performing grid search...\n')
+
+        #============================== Assembly ==================================================== 
+        if 'assembly' in modes:
+            logging.info('Started assembly mode')
+            
+            # Build hidden layers
+            if self.lineal_output:
+                initial_af = [(p, 'None') for p in self.af_list]
+            else:
+                initial_af = [p for p in itertools.product(self.af_list, repeat=2)]
+
+            total_architectures = len(initial_af)*(self.max_neurons - (self.min_neurons-1) )
+
+            # Search for better AF and Dimension over each network
+            for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+                logging.info(f'Searching {hidden_size} layers')
+
+                Network = self.Networks[hidden_size]
+                if hidden_size != 1:
+                    total_architectures = (self.max_neurons - (self.min_neurons-1) )*len(self.af_list)
+
+                print('.'*50)
+                print(Network)
+                print('.'*50, '\n')
+
+                file = Network + f'{self.extra_name}.csv'
+                last_hidden_size = hidden_size-1
+                
+                pbar = tqdm(total=total_architectures, desc='Architectures', colour='green')
+
+                for dim in range(self.min_neurons, self.max_neurons+1):
+                    
+                    if hidden_size == 1:
+                        dimension = (dim, )
+
+                        for af in initial_af:
+
+                            architecture = {
+                                'model' : Network,
+                                'num_targets' : self.num_targets,
+                                'num_features' : self.num_features,
+                                'dimension' : dimension,
+                                'activation_functions' : af,
+                                'optimizer' : self.config.get_loss('optimizer'),
+                                'criterion' : self.config.get_loss('criterion')
+                            }
+
+                            tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                            train_flag, tr = self.launch(tr)
+
+                            if not train_flag:
+                                pbar.update()
+                                continue
+
+                            pbar.update()
+
+                    else:
+                        better_network = self.recover_network(last_hidden_size, step=actual_step)
+
+                        if better_network == None:
+                            logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                            print(f'Any functional model found for {hidden_size} hidden layers...')
+                            continue
+                        
+                        for i, network_step in enumerate(better_network):
+                            dimension = list(network_step['dimension'])
+                            dimension.append(dim)
+                            dimension = tuple(dimension)
+                            
+                            initial_af = list(network_step['activation_functions'])
+                            
+                            for af in self.af_list:
+                                
+                                final_af = copy.copy(initial_af)
+                                    
+                                if self.lineal_output:
+                                    final_af.insert(-1, af)
+                                else:
+                                    final_af.append(af)
+                        
+                                final_af = tuple(final_af)
+                                
+                                architecture = {
+                                    'model' : Network,
+                                    'num_targets' : self.num_targets,
+                                    'num_features' : self.num_features,
+                                    'dimension' : dimension,
+                                    'activation_functions' : final_af,
+                                    'optimizer' : self.config.get_loss('optimizer'),
+                                    'criterion' : self.config.get_loss('criterion')
+                                }
+
+                                tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                                train_flag, tr = self.launch(tr)
+
+                                if not train_flag:
+                                    pbar.update()
+                                    continue
+
+                                pbar.update()
+
+        if 'random' in modes:
+            logging.info('Started ramdom mode')
+
+            for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+
+                if hidden_size > 1:
+                    logging.info(f'Searching {hidden_size} layers')
+                    Network = self.Networks[hidden_size]
+                    file = Network + f'{self.extra_name}.csv'
+
+                    print('.'*50)
+                    print(Network)
+                    print('.'*50, '\n')
+
+                    better_network = self.recover_network(hidden_size, step=actual_step)
+
+                    if better_network == None:
+                        logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                        print(f'Any functional model found for {hidden_size} hidden layers...')
+                        continue
+                    
+                    for i, network_step in enumerate(better_network):
+                        final_af_list = self.get_random_activation_functions(hidden_size+1)
+                        
+                        total_architectures = len(final_af_list)
+
+                        pbar = tqdm(total=total_architectures, desc='Architectures', colour='green')
+
+                        for final_af in final_af_list:
+                            architecture = {
+                                'model' : Network,
+                                'num_targets' : self.num_targets,
+                                'num_features' : self.num_features,
+                                'dimension' : network_step['dimension'],
+                                'activation_functions' : final_af,
+                                'optimizer' : self.config.get_loss('optimizer'),
+                                'criterion' : self.config.get_loss('criterion')
+                            }
+
+                            tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                            train_flag, tr = self.launch(tr)
+
+                            if not train_flag:
+                                pbar.update()
+                                continue
+                            
+                            pbar.update()
+
+        logging.info('Grid search complete')
+        print('\nGrid search complete...\n')
+        print('+'*50)
+
+    def optimization(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'optimization'
+
+        logging.info('Started optimization search')
+
+        print('\n', '+'*50)
+        print('Performing optimization...\n')
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers')
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(Network)
+            print('.'*50, '\n')
+            
+            # Search for better optimizer and criterion over network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+        
+            for i, network_step in enumerate(better_network):
+                
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+
+                pbar = tqdm(total=len(self.optimizers)*len(self.loss_functions), desc='Optimizers', colour='green')
+
+                file = Network + f'{self.extra_name}.csv'
+
+                for optimizer in self.optimizers:
+
+                    for criterion in self.loss_functions:
+
+                        architecture = {
+                            'model' : Network,
+                            'num_targets' : self.num_targets,
+                            'num_features' : self.num_features,
+                            'dimension' : network_step['dimension'],
+                            'activation_functions' : network_step['activation_functions'],
+                            'optimizer' : optimizer,
+                            'criterion' : criterion
+                        }
+
+                        tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                        train_flag, tr = self.launch(tr)
+
+                        if not train_flag:
+                            pbar.update()
+                            continue
+
+                        pbar.update()
+        
+        logging.info('Optimization search complete')
+        print('\nOptimization search complete...\n')
+        print('+'*50)
+
+    def restart_grid_from_worst(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'restart_worst'
+        logging.info('Restarted from worst optimizer')
+        print('\n', '+'*50)
+        print('Performing grid from worst...\n')
+    
+        worst_network = self.recover_network(4, previous_step, worst=True)
+
+        if worst_network == None:
+            logging.info(f"Any functional model found for {4} hidden layers in {actual_step}")
+            print(f'Any functional model found for {4} hidden layers...')
+
+        self.config.update(
+            optimizer = worst_network[0]['optimizer'],
+            criterion = worst_network[0]['criterion']
+        )
+
+        self.grid('', modes=['assembly', ''])
+
+    def random_state(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'random_state'
+        logging.info('Random state search started')
+
+        print('\n', '+'*50)
+        print('Performing random_state searching...\n')
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers')
+
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(f'{Network} Parted: {self.parted}')
+            print('.'*50, '\n')
+
+            # Search for better learning_rate in network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+            
+            rnd = np.random.RandomState(seed=self.seed)
+            random_state_list = rnd.randint(150, 200000, self.tries)
+
+            file = Network + f'{self.extra_name}_RS'
+
+            par = len(random_state_list) // 3
+
+            if self.parted == None:
+                random_states = random_state_list
+            elif self.parted == 1:
+                random_states = random_state_list[0:par]
+                file += '1'
+            elif self.parted == 2:
+                random_states = random_state_list[par:2*par]
+                file += '2'
+            else:
+                random_states = random_state_list[2*par::]
+                file += '3'
+
+            file += '.csv'
+
+            n_iterations = len(random_states)
+            
+            for i, network_step in enumerate(better_network):
+                
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+                
+                pbar = tqdm(total=n_iterations, desc='Random States', colour='green')
+
+                for RS in random_states:
+
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(
+                        batch_size = network_step['batch_size'],
+                        learning_rate = round(float(network_step['lr']), 9),
+                        random_state = RS
+                    )
+
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+                    
+                    if not train_flag:
+                        pbar.update()
+                        continue
+
+                    pbar.update()
+
+        logging.info('Random state search complete')
+        print('\nrandom_state search complete...\n')
+        print('+'*50)
+
+    def tuning_batch(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'tuning_batch'
+
+        logging.info(f'Tuning batch search started (Parted: {self.parted})')
+        print('\n', '+'*50)
+        print('Performing tuning batch search...\n')
+        
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers (Parted: {self.parted})')
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(f'{Network} Parted: {self.parted}')
+            print('.'*50, '\n')
+                
+            # Search for better batch size in network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+
+            file = Network + f'{self.extra_name}_batches'
+            rnd = np.random.RandomState(seed=self.seed)
+
+            mini_batches = rnd.randint(self.bz_range[0], self.bz_range[1], self.tries)
+
+            par = len(mini_batches) // 3
+
+            if self.parted == None:
+                batches = mini_batches
+            elif self.parted == 1:
+                batches = mini_batches[0:par]
+                file += '1'
+            elif self.parted == 2:
+                batches = mini_batches[par:2*par]
+                file += '2'
+            else:
+                batches = mini_batches[2*par::]
+                file += '3'
+
+            file += '.csv'
+
+            n_iterations = len(batches)
+            
+            for i, network_step in enumerate(better_network):
+
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+
+                pbar = tqdm(total=n_iterations, desc='Batches', colour='green')
+
+                for batch_size in batches:
+
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(batch_size=int(batch_size))
+
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+
+                    if not train_flag:
+                        pbar.update()
+                        continue
+                        
+                    pbar.update()
+
+            ######################## Testing nearest powers of two in batches ##########################
+            logging.info(f'Searching nearest powers of two in batches (Parted: {self.parted})')
+            print('\n', '#'*16, ' Batch powering... ', '#'*16, '\n')
+            
+            better_network = self.recover_network(hidden_size, step=actual_step)
+
+            if better_network == None:
+                logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                print(f'Any functional model found for {hidden_size} hidden layers...')
+                continue
+            
+            for i, network_step in enumerate(better_network):
+                new_batches = self.get_adjacent_batches(network_step['batch_size'])
+
+                for batch_size in new_batches:
+
+                    print(f'Batch size => {batch_size}\n')
+
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(batch_size=int(batch_size))
+
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+
+                    if not train_flag:
+                        pbar.update()
+                        continue
+
+            ######################## Testing three increments and decrements in batches ##########################
+            logging.info(f'Searching increments in batches (Parted: {self.parted})')
+            print('\n', '#'*16, ' Testing three increments... ', '#'*16, '\n')
+            
+            better_network = self.recover_network(hidden_size, step=actual_step)
+
+            if better_network == None:
+                logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                print(f'Any functional model found for {hidden_size} hidden layers...')
+                continue
+            
+            for i, network_step in enumerate(better_network):
+                new_batches = []
+
+                for j in range(1, 4):
+                    new_batches.append(network_step['batch_size']+j)
+                    new_batches.append(network_step['batch_size']-j)
+
+                for batch_size in new_batches:
+
+                    print(f'Batch size => {batch_size}\n')
+
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(batch_size=int(batch_size))
+
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+
+                    if not train_flag:
+                        pbar.update()
+                        continue
+        
+        logging.info(f'Tuning batch search complete (Parted: {self.parted})')
+        print('\nBatch search complete...\n')
+        print('+'*50)
+
+    def tuning_lr(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'tuning_lr'
+
+        logging.info(f'Learning rate search started (Parted: {self.parted})')
+
+        print('\n', '+'*50)
+        print('Performing learning rate search...\n')
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers (Parted: {self.parted})')
+
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(f'{Network} Parted: {self.parted}')
+            print('.'*50, '\n')
+
+            # Search for better learning_rate in network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+            
+            file = Network + f'{self.extra_name}_lr'
+            rnd = np.random.RandomState(seed=self.seed)
+
+            lr_list = rnd.uniform(self.lr_range[0], self.lr_range[1], self.tries)
+            
+            par = len(lr_list) // 3
+
+            if self.parted == None:
+                learning_rates = lr_list
+            elif self.parted == 1:
+                learning_rates = lr_list[0:par]
+                file += '1'
+            elif self.parted == 2:
+                learning_rates = lr_list[par:2*par]
+                file += '2'
+            else:
+                learning_rates = lr_list[2*par::]
+                file += '3'
+
+            file += '.csv'
+
+            n_iterations = len(learning_rates)
+
+            for i, network_step in enumerate(better_network):
+                
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+
+                pbar = tqdm(total=n_iterations, desc='learning rates', colour='green')
+
+                for learning_rate in learning_rates:
+
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(
+                        batch_size=network_step['batch_size'],
+                        learning_rate=round(learning_rate, 9)
+                        )
+                    
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+
+                    if not train_flag:
+                        pbar.update()
+                        continue
+
+                    pbar.update()
+        
+        logging.info(f'Learning rate search complete (Parted: {self.parted})')
+        print('\nLearning rate search complete...\n')
+        print('+'*50)
+
+    def lineal(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'lineal'
+
+        logging.info('Lineal search started')
+
+        print('\n', '+'*50)
+        print('Performing linear searching...\n')
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers')
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(Network)
+            print('.'*50, '\n')
+
+            # Search for better learning_rate in network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+
+            file = Network + f'{self.extra_name}_l' #!!!!!!!!!!!!!!!!!!!
+            file += '.csv'
+
+            for i, network_step in enumerate(better_network):
+                
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+
+                def model_function(lr):
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    self.config.update(
+                        batch_size=network_step['batch_size'],
+                        learning_rate=round(lr[-1], 9)
+                    )
+
+                    tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                    train_flag, tr = self.launch(tr)
+
+                    if train_flag:
+                        if hasattr(tr, 'values_plot'):
+                            if 'acc' in self.reader_criteria:
+                                err = abs(1 - tr.values_plot['acc_val'][-1])
+                            else:
+                                err = abs(1 - tr.values_plot['r2_val'][-1])
+
+                            print(f'{Network}: {lr[-1]} -> {err:.4f}')
+                        else:
+                            err = 1
+                            print(f'{Network}: No values_plot defined')
+
+                    else:
+                        print('Error in training...')
+                        err = 1
+
+                    return err
+
+                def run():
+                    lr_local = network_step['lr']
+
+                    if 'acc' in self.reader_criteria:
+                        err_0 = abs(1 - network_step['acc']/100)
+                    else:
+                        err_0 = abs(1 - network_step['r2'])
+                    
+                    print(f"{Network}: {lr_local} -> {err_0:.4f}")
+
+                    result = minimize(model_function, lr_local, method='Nelder-Mead')
+                    return result
+                
+                result_lr = run()
+                better_lr = result_lr.x[0]
+                
+                print(f'\n Better lr -> {better_lr:.4f}')
+
+        logging.info('Lineal search complete')
+        print('\nLinear search complete...\n')
+        print('+'*50)
+
+    def around_exploration(self, previous_step: str, network: dict=False) -> None:
+        actual_step = 'around_exploration'
+
+        logging.info('Around exploration started')
+
+        print('\n', '+'*50)
+        print('Performing around exploration ...\n')
+        for hidden_size in range(self.start_point, self.max_hidden_layers+1):
+            logging.info(f'Searching {hidden_size} layers')
+            Network = self.Networks[hidden_size]
+
+            print('.'*50)
+            print(f'{Network} Parted: {self.parted}')
+            print('.'*50, '\n')
+
+            # Search for better learning_rate in network
+            if network:
+                print('Running specific network\n')
+                better_network = network
+            else:
+                better_network = self.recover_network(hidden_size, step=previous_step)
+
+                if better_network == None:
+                    logging.info(f"Any functional model found for {hidden_size} hidden layers in {actual_step}")
+                    print(f'Any functional model found for {hidden_size} hidden layers...')
+                    continue
+
+            file = Network + f'{self.extra_name}_RE'
+
+            for i, network_step in enumerate(better_network):
+                
+                if self.n_networks > 1:
+                    print(f'Runing Network Test {i+1}/{self.n_networks}\n')
+
+                initial_lr = float(network_step['lr'])
+                lr_list = []
+ 
+                initial_batch = network_step['batch_size']
+                if initial_batch == 'All':
+                    initial_batch = 200
+
+                batch_list = []
+
+                rs = int(network_step['random_state'])
+                n_lr = 0
+                n_batch = 0
+
+                for i in range(1, 16):
+                    if initial_lr + i*0.1 < 1:
+                        lr_list.append(initial_lr + i*0.1)
+                        n_lr += 1
+                    if initial_lr - i*1E-4 > 0:
+                        lr_list.append(initial_lr - i*1E-4)
+                        n_lr += 1
+
+                    if i<=6:
+                        batch_list.append(initial_batch + i*1)
+                        batch_list.append(initial_batch - i*1)
+                        n_batch += 2
+                
+                par = len(lr_list) // 3
+                
+                if self.parted == None:
+                    lr_selected = lr_list
+                elif self.parted == 1:
+                    lr_selected = lr_list[0:par]
+                    file += '1'
+                elif self.parted == 2:
+                    lr_selected = lr_list[par:2*par]
+                    file += '2'
+                else:
+                    lr_selected = lr_list[2*par::]
+                    file += '3'
+
+                file += '.csv'
+                
+                n_values = len(lr_selected)*len(batch_list)
+                pbar = tqdm(total=n_values, desc='Exploration steps', colour='green')
+
+                for lr in lr_selected:
+                    architecture = {
+                        'model' : Network,
+                        'num_targets' : self.num_targets,
+                        'num_features' : self.num_features,
+                        'dimension' : network_step['dimension'],
+                        'activation_functions' : network_step['activation_functions'],
+                        'optimizer' : network_step['optimizer'],
+                        'criterion' : network_step['criterion']
+                    }
+
+                    for batch in batch_list:
+                        self.config.update(
+                            batch_size = batch,
+                            learning_rate = round(lr, 9),
+                            random_state = rs
+                        )
+
+                        tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=actual_step, workers=self.workers)
+
+                        train_flag, tr = self.launch(tr)
+
+                        if not train_flag:
+                            pbar.update()
+                            continue
+
+                        pbar.update()
+
+            logging.info('Around exploration complete')
+            print('\naround_exploration search complete...\n')
+            print('+'*50)
+
+    def Test_model(self, network: dict, overview: bool=True, monitoring: bool=False) -> None:
+        '''
+        Run a specific model and save it to folder Models/recovering
 
         Parameters
         ----------
         network : object of class Reader().recover_best()
             Dictionary with the parameters for the model to save
-
-        config : Instance of Configurator `class`
-            Object of class Configurator with all the information about the actual
-            training launched.
-
+        
         overview : `bool`
             If True will print on console the full network information
 
@@ -120,7 +1083,7 @@ class Launcher():
             If True the file will keep the better result obtained during training
         '''
         # Set random state from configurator class
-        config.update(
+        self.config.update(
             random_state = network['random_state']
         )
 
@@ -130,7 +1093,8 @@ class Launcher():
 
         architecture = {
             'model' : Network,
-            'num_features' : config.json['num_features'],
+            'num_targets' : self.num_targets,
+            'num_features' : self.config.get_json('num_features'),
             'dimension' : network['dimension'],
             'activation_functions' : network['activation_functions'],
             'optimizer' : network['optimizer'],
@@ -138,840 +1102,64 @@ class Launcher():
         }
 
         Hyperparameters = {
-            'num_epochs' : config.hyperparameters['num_epochs'],
+            'num_epochs' : self.config.get_hyperparameters('num_epochs'),
             'batch_size' : int(network['batch_size']),
             'learning_rate' : round(network['lr'], 9)
         }
 
-        extra_name = config.custom['extra_filename']
-        save_plots = config.configurations['save_plots']
+        extra_name = self.config.get_custom('extra_filename')
+        save_plots = self.config.get_configurations('save_plots')
 
         file = Network + f'{extra_name}.csv'
-        tr = Trainer(file, architecture, Hyperparameters, config, mode='models', step='recovering')
+        tr = Trainer(file, architecture, Hyperparameters, step='recovering')
         
         if overview:
             tr.overview()
 
-        tr.start_training(save_plots=save_plots, allow_print=True, monitoring=monitoring)
-
-    def Run_training(self, config, network=None, perform=['grid', 'optimization', 'tuning_batch', 'tuning_lr', 'lineal', 'random_state', 'around_exploration']):
+        tr.start_training(write=True , allow_print=True, save_plots=save_plots, monitoring=monitoring)
+    
+    def Run(self, network: dict=False, last_step: str=False) -> None:
         '''
-        Start the grid training
+        Start the analysis
 
         Parameters
         ----------
-        config : `dict`
-            Object of class Configurator
-
         network : `dict`
-            Dictionary from the ResultsReader.recover_best(), when using this feature you can only train one step
-            
-        perform : `list`
-            List with the steps to perform: grid, optimization, tuning_batch, tuning_lr, random_state,
-            around_exploration
+            Dictionary from the ResultsReader.recover_best()
+        
+        last_step : `str` (optional)
+            Last performed step, default is False
         '''
-        if network:
-            if len(perform) > 1:
-                print(f'{len(perform)} steps in perform!')
-                print('When passing network parameter to trainer, can not define more than one step')
-            if 'grid' in perform:
-                print('Grid step not available when passing network')
-
-        num_targets = config.json['num_targets']
-        num_features = config.json['num_features']
-        optimizers = config.json['optimizers']
-        loss_functions = config.json['loss_functions']
-        #======================================== COMPLETE ==========================================
-        mode = 'complete'
-        
-        extra_name = config.custom['extra_filename']
-        seed = config.custom['seed']
-        lineal_output = config.inputs['lineal_output']
-
-        max_hidden_layers = config.configurations['max_hidden_layers']
-        min_neurons = config.configurations['min_neurons']
-        max_neurons = config.configurations['max_neurons']
-
-        lr_range = config.configurations['learning_rate_range']
-        bz_range = config.configurations['batch_size_range']
-        
-        tries = config.configurations['n_tries']
-        n_networks = config.configurations['n_networks']
-        start_point = config.configurations['start_point']
-        save_plots = config.configurations['save_plots']
-        reader_criteria = config.configurations['reader_criteria']
-        workers = config.configurations['workers']
-        af_list = copy.deepcopy(config.json['af_valid'])
-
-        af_list.remove('None')
-
         os.system('clear')
-        print(f'Working with: {extra_name}\n')
+        np.seterr(all="ignore")
 
-        if 'explore_lr' in perform:
-            print('+'*50)
-            print('Performing learning rate exploration...\n')
+        step_functions = {
+            'grid' : self.grid,
+            'optimization' : self.optimization,
+            'random_state' : self.random_state,
+            'tuning_batch' : self.tuning_batch,
+            'tuning_lr' : self.tuning_lr,
+            'lineal' : self.lineal,
+            'around_exploration' : self.around_exploration,
+            'restart_grid_from_worst' : self.restart_grid_from_worst
+        }
 
-            dimension_layer = {
-                1 : (4, ),
-                2 : (4, 2),
-                3 : (6, 4, 2),
-                4 : (4, 6, 4, 2),
-                5 : (4, 6, 6, 4, 2),
-                6 : (4, 6, 6, 6, 4, 2)
-            }
+        if last_step:
+            previous_step = last_step
+        else:
+            previous_step = 'grid'
 
-            activation_af = {
-                1 : ('nn.ELU()', 'nn.ReLU()'),
-                2 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()'),
-                3 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()'),
-                4 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()'),
-                5 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()', 'nn.ELU()'),
-                6 : ('nn.ELU()', 'nn.ReLU()', 'nn.SELU()', 'nn.Sigmoid()', 'nn.Tanh()', 'nn.ELU()', 'nn.ReLU()')
-            }
+        for i, step in enumerate(self.perform):
+            launcher_function = step_functions[step]
 
-            for hidden_size in range(start_point, max_hidden_layers+1):
-                Network = self.Networks[hidden_size]
-                print('.'*50)
-                print(Network)
-                print('.'*50, '\n')
-            
-                file = Network + f'{extra_name}.csv'
-            
-                # Set fixed architecture
-                architecture = {
-                    'model' : Network,
-                    'num_targets' : num_targets,
-                    'num_features' : num_features,
-                    'dimension' : dimension_layer[hidden_size],
-                    'activation_functions' : activation_af[hidden_size],
-                    'optimizer' : config.loss['optimizer'],
-                    'criterion' : config.loss['criterion']
-                }
-
-                learning_list = self.get_learning_rates()
-
-                pbar = tqdm(total=len(learning_list), desc='learning rates', colour='green')
-
-                for learning_test in learning_list:
-                    config.update(
-                        learning_rate=float(learning_test)
-                    )
-
-                    tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='explore_lr', workers=workers)
-                    
-                    n_parameters = tr.parameters_count()
-                    n_train = tr.database_size()
-
-                    if n_parameters <= 0.12*n_train:
-                        try:
-                            time.sleep(1)
-                            tr.start_training(save_plots=save_plots)
-
-                            tr.close_plots()
-                            del(tr)
-                        except:
-                            pbar.update()
-                            continue
-
-                    pbar.update()
-                
-                del(pbar)
-
-        if 'grid' in perform:
-
-            if lineal_output:
-                initial_af = [(p, 'None') for p in af_list]
+            if step == 'grid':
+                self.start_point = self.config.get_configurations('start_point')
             else:
-                initial_af = [p for p in itertools.product(af_list, repeat=2)]
-
-            total_architectures = len(initial_af)*(max_neurons - (min_neurons-1) )
-           
-            print('+'*50)
-            print('Performing grid search...\n')
-
-            # Search for better AF and Dimension over each network
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-                if hidden_size != 1:
-                    total_architectures = (max_neurons - (min_neurons-1) )*len(af_list)
-
-                print('.'*50)
-                print(Network)
-                print('.'*50, '\n')
-
-                file = Network + f'{extra_name}.csv'
-                last_hidden_size = hidden_size-1
-                
-                pbar = tqdm(total=total_architectures, desc='Architectures', colour='green')
-
-                for dim in range(min_neurons, max_neurons+1):
-                    
-                    if hidden_size == 1:
-                        dimension = (dim, )
-
-                        for af in initial_af:
-
-                            architecture = {
-                                'model' : Network,
-                                'num_targets' : num_targets,
-                                'num_features' : num_features,
-                                'dimension' : dimension,
-                                'activation_functions' : af,
-                                'optimizer' : config.loss['optimizer'],
-                                'criterion' : config.loss['criterion']
-                            }
-
-                            tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='grid', workers=workers)
-
-                            n_parameters = tr.parameters_count()
-                            n_train = tr.database_size()
-
-                            if n_parameters <= 0.12*n_train:
-                                time.sleep(1)
-                                try:
-                                    tr.start_training(save_plots=save_plots)
-
-                                    tr.close_plots()
-                                    del(tr)
-                                except:
-                                    pbar.update()
-                                    continue
-
-                            pbar.update()
-
-                    else:
-                        try:
-                            rd = Reader(last_hidden_size, f'_{last_hidden_size}Hlayer{extra_name}.csv', type='complete', step='grid')
-                            better_network = rd.recover_best(criteria=reader_criteria)
-                        except:
-                            print(f'No files found for {Network}')
-                            continue
-
-                        if better_network == None:
-                            print('Any functional model found for {}...')
-                            break
-                        else:
-                            better_network = better_network[0]
-
-                        dimension = list(better_network['dimension'])
-                        dimension.append(dim)
-                        dimension = tuple(dimension)
-                        
-                        initial_af = list(better_network['activation_functions'])
-                        
-                        for af in af_list:
-                            
-                            final_af = copy.copy(initial_af)
-                                
-                            if lineal_output:
-                                final_af.insert(-1, af)
-                            else:
-                                final_af.append(af)
-                    
-                            final_af = tuple(final_af)
-                            
-                            architecture = {
-                                'model' : Network,
-                                'num_targets' : num_targets,
-                                'num_features' : num_features,
-                                'dimension' : dimension,
-                                'activation_functions' : final_af,
-                                'optimizer' : config.loss['optimizer'],
-                                'criterion' : config.loss['criterion']
-                            }
-
-                            tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='grid', workers=workers)
-
-                            n_parameters = tr.parameters_count()
-                            n_train = tr.database_size()
-
-                            if n_parameters <= 0.12*n_train:
-                                try:
-                                    time.sleep(1)
-                                    tr.start_training(save_plots=save_plots)
-
-                                    tr.close_plots()
-                                    del(tr)
-                                except:
-                                    pbar.update()
-                                    continue
-
-                            else:
-                                time.sleep(0.3)
-
-                            pbar.update()
-                    
-                del(pbar)
-
-            print('\nGrid search complete...\n')
-            print('+'*50)
-
-        if 'optimization' in perform:
-            print('\n', '+'*50)
-            print('Performing optimization...\n')
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(Network)
-                print('.'*50, '\n')
-
-                # Search for better optimizer and criterion over network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
+                if self.config.get_configurations('start_point') != 1:
+                    self.start_point = self.config.get_configurations('start_point')
                 else:
-                    try:
-                        rd = Reader(hidden_size, f'{hidden_size}Hlayer{extra_name}.csv', type='complete', step='grid')
-                        better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
-
-                        if better_network == None:
-                            print('Any functional model found for {}...')
-                            break
-                    
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-                
-                for i, network_step in enumerate(better_network):
-                    
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-
-                    pbar = tqdm(total=len(optimizers)*len(loss_functions), desc='Optimizers', colour='green')
-
-                    file = Network + f'{extra_name}.csv'
-
-                    for optimizer in optimizers:
-
-                        for criterion in loss_functions:
-
-                            architecture = {
-                                'model' : Network,
-                                'num_targets' : num_targets,
-                                'num_features' : num_features,
-                                'dimension' : network_step['dimension'],
-                                'activation_functions' : network_step['activation_functions'],
-                                'optimizer' : optimizer,
-                                'criterion' : criterion
-                            }
-
-                            tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='optimization', workers=workers)
-
-                            n_parameters = tr.parameters_count()
-                            n_train = tr.database_size()
-
-                            if n_parameters <= 0.12*n_train:
-                                time.sleep(1)
-
-                                try:
-                                    tr.start_training(save_plots=save_plots)
-
-                                    tr.close_plots()
-                                    del(tr)
-                                
-                                except:
-                                    pbar.update()
-                                    continue
-
-                            pbar.update()
-                    
-                    del(pbar)
+                    self.start_point = self.initial_hidden_size_after_grid
             
-            print('\nOptimization search complete...\n')
-            print('+'*50)
+            launcher_function(previous_step, network)
 
-        if 'tuning_batch' in perform:
-            
-            print('\n', '+'*50)
-            print('Performing tuning batch search...\n')
-            
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(f'{Network}')
-                print('.'*50, '\n')
-                    
-                # Search for better batch size in network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
-                else:
-                    try:
-                        rd = Reader(hidden_size, f'{extra_name}.csv', type='complete', step='optimization')
-                        better_network = rd.recover_best(n_networks=n_networks, criteria=reader_criteria)
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
-
-                file = Network + f'{extra_name}_batches'
-                rnd = np.random.RandomState(seed=seed)
-
-                batches = rnd.randint(bz_range[0], bz_range[1], tries)
-
-                file += '.csv'
-
-                n_iterations = len(batches)
-                
-                for i, network_step in enumerate(better_network):
-
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-
-                    pbar = tqdm(total=n_iterations, desc='Batches', colour='green')
-
-                    for batch_size in batches:
-
-                        architecture = {
-                            'model' : Network,
-                            'num_targets' : num_targets,
-                            'num_features' : num_features,
-                            'dimension' : network_step['dimension'],
-                            'activation_functions' : network_step['activation_functions'],
-                            'optimizer' : network_step['optimizer'],
-                            'criterion' : network_step['criterion']
-                        }
-
-                        config.update(batch_size=int(batch_size))
-
-                        tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='tuning_batch', workers=workers)
-
-                        n_parameters = tr.parameters_count()
-                        n_train = tr.database_size()
-
-                        if n_parameters <= 0.12*n_train:
-                            time.sleep(1)
-                            try:
-                                tr.start_training(save_plots=save_plots)
-
-                                tr.close_plots()
-                                del(tr)
-                            except:
-                                pbar.update()
-                                continue
-                            
-                        pbar.update()
-                    
-                    del(pbar)
-
-                ######################## Testing nearest powers of two in batches ##########################
-                print('\n', '#'*16, ' Batch powering... ', '#'*16, '\n')
-                
-                try:
-                    rd = Reader(hidden_size, f'{extra_name}_batches', type='complete', step='tuning_batch')
-                    better_network = rd.recover_best(criteria=reader_criteria)
-                except:
-                    print(f'No files found for {Network}')
-                    continue
-
-                if better_network == None:
-                    print('Any functional model found for {}...')
-                    break
-                else:
-                    better_network = better_network[0]
-                
-                new_batches = self.get_batches(better_network['batch_size'])
-
-                for batch_size in new_batches:
-
-                    print(f'Batch size => {batch_size}\n')
-
-                    architecture = {
-                        'model' : Network,
-                        'num_targets' : num_targets,
-                        'num_features' : num_features,
-                        'dimension' : better_network['dimension'],
-                        'activation_functions' : better_network['activation_functions'],
-                        'optimizer' : better_network['optimizer'],
-                        'criterion' : better_network['criterion']
-                    }
-
-                    config.update(batch_size=int(batch_size))
-
-                    tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='tuning_batch', workers=workers)
-
-                    n_parameters = tr.parameters_count()
-                    n_train = tr.database_size()
-
-                    if n_parameters <= 0.12*n_train:
-                        try:
-                            time.sleep(1)
-                            tr.start_training(save_plots=save_plots)
-
-                            tr.close_plots()
-                            del(tr)
-                        except:
-                            continue
-
-            print('\nBatch search complete...\n')
-            print('+'*50)
-
-        if 'tuning_lr' in perform:
-            
-            print('\n', '+'*50)
-            print('Performing learning rate search...\n')
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(f'{Network}')
-                print('.'*50, '\n')
-
-                # Search for better learning_rate in network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
-                else:
-                    try:
-                        rd = Reader(hidden_size, f'{extra_name}_batches', type='complete', step='tuning_batch')
-                        better_network = rd.recover_best(criteria=reader_criteria)
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
-
-                file = Network + f'{extra_name}_lr'
-                rnd = np.random.RandomState(seed=seed)
-
-                learning_rates = rnd.uniform(lr_range[0], lr_range[1], tries)
-                
-                file += '.csv'
-
-                n_iterations = len(learning_rates)
-
-                for i, network_step in enumerate(better_network):
-                    
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-
-                    pbar = tqdm(total=n_iterations, desc='learning rates', colour='green')
-
-                    for learning_rate in learning_rates:
-
-                        architecture = {
-                            'model' : Network,
-                            'num_targets' : num_targets,
-                            'num_features' : num_features,
-                            'dimension' : network_step['dimension'],
-                            'activation_functions' : network_step['activation_functions'],
-                            'optimizer' : network_step['optimizer'],
-                            'criterion' : network_step['criterion']
-                        }
-
-                        config.update(
-                            batch_size=int(network_step['batch_size']), 
-                            learning_rate=round(learning_rate, 9)
-                            )
-
-                        tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='tuning_lr', workers=workers)
-
-                        n_parameters = tr.parameters_count()
-                        n_train = tr.database_size()
-
-                        if n_parameters <= 0.12*n_train:
-                            try:
-                                time.sleep(1)
-                                tr.start_training(save_plots=save_plots)
-
-                                tr.close_plots()
-                                del(tr)
-                            except:
-                                pbar.update()
-                                continue
-
-                        pbar.update()
-                    
-                    del(pbar)
-            
-            print('\nLearning rate search complete...\n')
-            print('+'*50)
-
-        if 'lineal' in perform:
-            print('\n', '+'*50)
-            print('Performing linear searching...\n')
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(Network)
-                print('.'*50, '\n')
-
-                # Search for better learning_rate in network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
-                else:
-                    try:
-                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
-                        better_network = rd.recover_best(criteria=reader_criteria)
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
-
-                file = Network + f'{extra_name}_lr_lineal' #!!!!!!!!!!!!!!!!!!!
-                file += '.csv'
-
-                for i, network_step in enumerate(better_network):
-                    
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-
-                    def model_function(lr):
-                        architecture = {
-                            'model' : Network,
-                            'num_targets' : num_targets,
-                            'num_features' : num_features,
-                            'dimension' : network_step['dimension'],
-                            'activation_functions' : network_step['activation_functions'],
-                            'optimizer' : network_step['optimizer'],
-                            'criterion' : network_step['criterion']
-                        }
-
-                        config.update(
-                            batch_size=int(network_step['batch_size']),
-                            learning_rate=round(lr[-1], 9)
-                        )
-
-                        tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='tuning_lr', workers=workers)
-
-                        n_parameters = tr.parameters_count()
-                        n_train = tr.database_size()
-
-                        if n_parameters <= 0.12*n_train:
-                            time.sleep(1)
-                            tr.start_training(save_plots=save_plots)
-
-                            tr.close_plots()
-
-                        if 'acc' in reader_criteria:
-                            err = abs(1 - tr.values_plot['general_acc_val'][-1])
-                        else:
-                            err = abs(1 - tr.values_plot['general_r2_val'][-1])
-
-                        print(f'{Network}: {lr[-1]} -> {err:.4f}')
-
-                        return err
-
-                    def run():
-                        lr_local = network_step['lr']
-
-                        if 'acc' in reader_criteria:
-                            err_0 = abs(1 - network_step['acc']/100)
-                        else:
-                            err_0 = abs(1 - network_step['r2'])
-                        
-                        print(f"{Network}: {lr_local:.6f} -> {err_0:.4f}")
-
-                        result = minimize(model_function, lr_local, method='Nelder-Mead')
-                        return result
-                    
-                    result_lr = run()
-                    better_lr = result_lr.x[0]
-                    
-                    print(f'\n Better lr -> {better_lr}')
-
-            print('\nLinear search complete...\n')
-            print('+'*50)
-
-        if 'random_state' in perform:
-            print('\n', '+'*50)
-            print('Performing random_state searching...\n')
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(f'{Network}')
-                print('.'*50, '\n')
-
-                # Search for better learning_rate in network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
-                else:
-                    try:
-                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='tuning_lr')
-                        better_network = rd.recover_best(criteria=reader_criteria)
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
-                
-                rnd = np.random.RandomState(seed=seed)
-                random_states = rnd.randint(150, 200000, tries)
-
-                file = Network + f'{extra_name}_lr_RS' #!!!!!!!!!!!!!!!!!!!
-
-                file += '.csv'
-
-                n_iterations = len(random_states)
-                
-                for i, network_step in enumerate(better_network):
-                    
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-                    
-                    pbar = tqdm(total=n_iterations, desc='Random States', colour='green')
-
-                    for RS in random_states:
-
-                        architecture = {
-                            'model' : Network,
-                            'num_targets' : num_targets,
-                            'num_features' : num_features,
-                            'dimension' : network_step['dimension'],
-                            'activation_functions' : network_step['activation_functions'],
-                            'optimizer' : network_step['optimizer'],
-                            'criterion' : network_step['criterion']
-                        }
-
-                        config.update(
-                            batch_size = int(network_step['batch_size']),
-                            learning_rate = round(float(network_step['lr']), 9),
-                            random_state = RS
-                        )
-
-                        tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='random_state', workers=workers)
-
-                        n_parameters = tr.parameters_count()
-                        n_train = tr.database_size()
-
-                        if n_parameters <= 0.12*n_train:
-                            try:
-                                time.sleep(1)
-                                tr.start_training(save_plots=save_plots)
-
-                                tr.close_plots()
-                            except:
-                                pbar.update()
-                                continue
-
-                        pbar.update()
-                    
-                    del(pbar)
-
-            print('\nrandom_state search complete...\n')
-            print('+'*50)
-        
-        if 'around_exploration' in perform:
-            print('\n', '+'*50)
-            print('Performing around exploration ...\n')
-            for hidden_size in range(start_point, max_hidden_layers+1):
-
-                Network = self.Networks[hidden_size]
-
-                print('.'*50)
-                print(f'{Network}')
-                print('.'*50, '\n')
-
-                # Search for better learning_rate in network
-                if network:
-                    print('Running specific network\n')
-                    better_network = network
-                else:
-                    try:
-                        rd = Reader(hidden_size, f'{extra_name}_lr', type='complete', step='random_state')
-                        better_network = rd.recover_best(criteria=reader_criteria)
-                    except:
-                        print(f'No files found for {Network}')
-                        continue
-
-                    if better_network == None:
-                        print('Any functional model found for {}...')
-                        break
-
-                file = Network + f'{extra_name}_RE' #!!!!!!!!!!!!!!!!!!!
-
-                for i, network_step in enumerate(better_network):
-                    
-                    if n_networks > 1:
-                        print(f'Runing Network Test {i+1}/{n_networks}\n')
-
-                    initial_lr = float(network_step['lr'])
-                    lr_list = []
-
-                    initial_batch = int(network_step['batch_size'])
-                    batch_list = []
-
-                    rs = int(network_step['random_state'])
-                    n_lr = 0
-                    n_batch = 0
-
-                    for i in range(1, 16):
-                        if initial_lr + i*0.1 < 1:
-                            lr_list.append(initial_lr + i*0.1)
-                            n_lr += 1
-                        if initial_lr - i*1E-4 > 0:
-                            lr_list.append(initial_lr - i*1E-4)
-                            n_lr += 1
-
-                        if i<=6:
-                            batch_list.append(initial_batch + i*1)
-                            batch_list.append(initial_batch - i*1)
-                            n_batch += 2
-
-                    file += '.csv'
-                    
-                    n_values = len(lr_list)*len(batch_list)
-                    pbar = tqdm(total=n_values, desc='Exploration steps', colour='green')
-
-                    for lr in lr_list:
-                        architecture = {
-                            'model' : Network,
-                            'num_targets' : num_targets,
-                            'num_features' : num_features,
-                            'dimension' : network_step['dimension'],
-                            'activation_functions' : network_step['activation_functions'],
-                            'optimizer' : network_step['optimizer'],
-                            'criterion' : network_step['criterion']
-                        }
-
-                        for batch in batch_list:
-                            config.update(
-                                batch_size = batch,
-                                learning_rate = round(lr, 9),
-                                random_state = rs
-                            )
-
-                            tr = Trainer(file, architecture, config.hyperparameters, config, mode=mode, step='around_exploration', workers=workers)
-
-                            n_parameters = tr.parameters_count()
-                            n_train = tr.database_size()
-
-                            if n_parameters <= 0.12*n_train:
-                                try:
-                                    time.sleep(1)
-                                    tr.start_training(save_plots=save_plots)
-
-                                    tr.close_plots()
-                                except:
-                                    pbar.update()
-                                    continue
-
-                            pbar.update()
-                        
-                    del(pbar)
-
-                print('\naround_exploration search complete...\n')
-                print('+'*50)
+            previous_step = 'grid' if self.perform[i-1] == 'restart_grid_from_worst' else self.perform[i-1]
