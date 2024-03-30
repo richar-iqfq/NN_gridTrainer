@@ -1,14 +1,14 @@
-import numpy as np
 import os
 
-from modules.DatabaseLoader import DatabaseLoader
+import numpy as np
 from sklearn.model_selection import train_test_split
 
-from modules.Configurator import Configurator
+from .. import Configurator
+from nnTrainer.data.Database import DatabaseLoader
 
-class ParameterGuard():
+class Guard():
     def __init__(self):
-        self.config = Configurator()
+        self.config: Configurator = Configurator()
         
         self.train_ID = self.config.get_inputs('train_ID')
 
@@ -120,3 +120,7 @@ class ParameterGuard():
         
         # save output
         np.save(self.output_file, outputs)
+
+    def load(self):
+        # Load input and output file
+        return np.load(self.input_file), np.load(self.output_file) 

@@ -1,5 +1,5 @@
-from modules.TrainingLauncher import Launcher
-from modules.Configurator import Configurator
+from nnTrainer.TrainingLauncher import Launcher
+from nnTrainer.Configurator import Configurator
 
 if __name__=='__main__':
     # Define the grid searchin steps to compute

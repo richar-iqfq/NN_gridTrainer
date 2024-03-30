@@ -1,7 +1,8 @@
 import os
+
 import pandas as pd
 
-from modules.Configurator import Configurator
+from .. import Configurator
 
 class Recorder():
     '''
@@ -9,7 +10,7 @@ class Recorder():
     '''
     def __init__(self) -> None:
         self.record_path = 'logs/runs.csv'
-        self.config = Configurator()
+        self.config: Configurator = Configurator()
 
         # Check if file exists
         if os.path.isfile(self.record_path):

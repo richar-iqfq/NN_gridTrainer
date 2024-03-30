@@ -1,5 +1,5 @@
-from modules.Valuator import Valuator
-from modules.Configurator import Configurator
+from nnTrainer.Valuator import Valuator
+from nnTrainer.Configurator import Configurator
 
 if __name__=='__main__':
     #====================== Inputs ======================================

@@ -1,18 +1,17 @@
-from modules.TrainingLauncher import Launcher
-from modules.Configurator import Configurator
+import nnTrainer
 
 if __name__=='__main__':
     # Define the grid searchin steps to compute
     steps = [
         'grid',
         'optimization', 
-        # 'restart_grid_from_worst',
-        # 'optimization',
-        # 'random_state',
-        # 'tuning_lr',
-        # 'tuning_batch', 
-        # 'random_state',
-        # 'around_exploration'
+        'restart_grid_from_worst',
+        'optimization',
+        'random_state',
+        'tuning_lr',
+        'tuning_batch', 
+        'random_state',
+        'around_exploration'
     ]
 
     ##############
@@ -21,7 +20,7 @@ if __name__=='__main__':
     ID = 'T002x'
 
     # Configurator
-    config = Configurator()
+    config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
@@ -31,7 +30,7 @@ if __name__=='__main__':
         n_tries = 150,
         n_networks = 1,
         start_point = 1,
-        num_epochs = 1400,
+        num_epochs = 1,
         random_state=5582,
         batch_size=256,
         scale_y = True,
@@ -42,11 +41,12 @@ if __name__=='__main__':
         train_ID = ID,
         limit_threads = True,
         save_full_predictions = False,
-        config_file = 'configT001x.json'
+        config_file = 'configT001x.json',
+        save_plots = True,
     )
 
     # Training launcher
-    mb = Launcher(steps)
+    mb = nnTrainer.Launcher(steps)
 
     # Launch the training
     mb.Run()

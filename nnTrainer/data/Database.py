@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
 
-from modules.Configurator import Configurator
+from .. import Configurator
 
+#==================================================================
+#======================= Database Loader ==========================
+#==================================================================
 class DatabaseLoader():
     def __init__(self):
         '''
         Main class for the loading and cleaning of data.
         '''
-        self.config : Configurator = Configurator()
+        self.config: Configurator = Configurator()
 
         # Variable assingment
         self.features = self.config.get_json('features')

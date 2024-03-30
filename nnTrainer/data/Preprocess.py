@@ -1,10 +1,11 @@
-import numpy as np
 import os
+
+import numpy as np
 from sklearn.model_selection import train_test_split
 
-from modules.DatabaseLoader import DatabaseLoader
-from modules.ParameterGuard import ParameterGuard
-from modules.Configurator import Configurator
+from .. import Configurator
+from nnTrainer.data.Database import DatabaseLoader
+from nnTrainer.data.Parameters import Guard
 
 class PreprocessData():
     def __init__(self):
@@ -16,7 +17,7 @@ class PreprocessData():
         ----------
         config object of `class` Configurator
         '''
-        self.config = Configurator()
+        self.config: Configurator = Configurator()
 
         self.features = self.config.get_json('features')
         self.n_features = len(self.features)
@@ -36,26 +37,17 @@ class PreprocessData():
         self.ID, self.x, self.y = self.__build_structure()
 
         # Compute parameters
-        self.guard = ParameterGuard()
-        self.guard.save(self.x, self.y)
+        self.parameter_guard = Guard()
+        self.parameter_guard.save(self.x, self.y)
 
         # Load parameters in class
-        self.in_param, self.out_param = self.__get_parameters()
+        self.in_param, self.out_param = self.parameter_guard.load()
 
         # Scale the data
         self.x_scaled, self.y_scaled = self.Scale(self.x, self.y)
 
         # Split data
         self.x_train, self.x_val, self.x_test, self.y_train, self.y_val, self.y_test = self.Split_Data(self.x_scaled, self.y_scaled)
-
-    def __get_parameters(self):
-        '''
-        Load the .npy parameters file for the scale and unscale routines
-        '''
-        in_param = np.load(self.guard.input_file)
-        out_param = np.load(self.guard.output_file)
-
-        return in_param, out_param
 
     def __build_structure(self):
         '''

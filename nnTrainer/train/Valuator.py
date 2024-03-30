@@ -1,22 +1,23 @@
+import os
+import copy
+
 import torch
 import torch.nn as nn
-import os
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
 import pandas as pd
-import copy
 
-from modules.PreprocessData import PreprocessData
-from modules.DatasetBuilder import create_datasets
-from modules.ResultsReader import Reader
-from modules.DatabaseLoader import DatabaseLoader
-from modules.Configurator import Configurator
-from modules.Outliers import Outliers
+from .. import Configurator
+from nnTrainer.data.Preprocess import PreprocessData
+from nnTrainer.data.Reader import Reader
+from nnTrainer.data.Metrics import OutliersComputer
+from nnTrainer.data.Database import DatabaseLoader
+from nnTrainer.data.Dataset import DatasetBuilder
 
 # Here we import the different models for trainning
-from modules.Models import (
+from nnTrainer.train.Models import (
     Net_1Hlayer,
     Net_2Hlayer,
     Net_3Hlayer,
@@ -85,7 +86,7 @@ class Valuator():
 
         # Loader
         self.loader = DatabaseLoader()
-        self.outliers_calc = Outliers()
+        self.outliers_calc = OutliersComputer()
 
         # Get better network
         self.netReader = Reader(hidden_layers, self.file_name, type='complete', step=self.step)
@@ -112,7 +113,8 @@ class Valuator():
             self.drop = False
 
         # datasets
-        self.train_dataset, self.val_dataset, self.test_dataset = create_datasets()
+        self.dataset_builder = DatasetBuilder()
+        self.train_dataset, self.val_dataset, self.test_dataset = self.dataset_builder.create_datasets()
 
         # Load model
         self.load_model()

@@ -1,5 +1,4 @@
-from modules.TrainingLauncher import Launcher
-from modules.Configurator import Configurator
+import nnTrainer
 
 if __name__=='__main__':
     # Define the grid searchin steps to compute
@@ -21,7 +20,7 @@ if __name__=='__main__':
     ID = 'T001x'
 
     # Configurator
-    config = Configurator()
+    config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
@@ -45,7 +44,7 @@ if __name__=='__main__':
     )
 
     # Training launcher
-    mb = Launcher(steps)
+    mb = nnTrainer.Launcher(steps)
 
     # Launch the training
     mb.Run(last_step='around_exploration')

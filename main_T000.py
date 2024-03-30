@@ -1,5 +1,4 @@
-from modules.TrainingLauncher import Launcher
-from modules.Configurator import Configurator
+import nnTrainer
 
 if __name__=='__main__':
     # Define the grid searchin steps to compute
@@ -8,11 +7,8 @@ if __name__=='__main__':
         'lineal', 'random_state', 'around_exploration'
     ]
 
-    # Training launcher
-    mb = Launcher()
-
     # Configurator
-    config = Configurator()
+    config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
@@ -34,6 +30,9 @@ if __name__=='__main__':
         limit_threads = True,
         save_full_predictions = False,
     )
+
+    # Training launcher
+    mb = nnTrainer.Launcher()
 
     # Launch the training
     mb.Run_training(config, perform=steps)
