@@ -1,4 +1,4 @@
-# NN_gridTrainer
+# nnTrainer
 
 - Ambriz Medina Ricardo
 
