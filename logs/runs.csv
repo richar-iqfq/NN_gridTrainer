@@ -1,5 +1,0 @@
-code,scaled,lineal_output,steps_order
-A000,False,True,
-T001x,True,False,"['grid', 'optimization', 'restart_grid_from_worst', 'optimization', 'random_state', 'tuning_lr', 'tuning_batch', 'random_state', 'around_exploration']"
-T002x,True,False,"['grid', 'optimization']"
-T003x,True,False,"['grid', 'optimization']"
