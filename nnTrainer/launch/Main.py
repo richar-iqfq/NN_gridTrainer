@@ -75,13 +75,13 @@ class MainLauncher():
         
         if self.tol <= 0.12:
             if n_parameters <= self.tol*n_train:
-                # try:
-                time.sleep(1)
-                trainer.start_training(save_plots=self.save_plots, monitoring=True)
+                try:
+                    time.sleep(1)
+                    trainer.start_training(save_plots=self.save_plots, monitoring=True)
 
-                trainer.close_plots()
-                # except:
-                #     flag = False
+                    trainer.close_plots()
+                except:
+                    flag = False
         else:
             if n_parameters > 0.12*n_train and n_parameters <= self.tol*n_train:
                 try:
