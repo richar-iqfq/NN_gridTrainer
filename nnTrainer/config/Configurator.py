@@ -41,6 +41,7 @@ class Configurator(metaclass=SingletonMeta):
             'workers' : 0, # Number of workers for the training
             'reader_criteria' : 'acc_val', # criteria to choose the better network
             'percent_outliers' : 0.08, # Tolerance for outliers
+            'network_tolerance' : 0.12, # Tolerance for n_parameters percentage
             'drop' : False, # File name with the extra molecules to be dropped from database
             'config_file' : 'config.json', # Configuration file with features and other relevant parameters
             'specific_param_file' : False, # Especific parameters filename for scaling

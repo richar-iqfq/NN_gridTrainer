@@ -8,12 +8,17 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 import numpy as np
 
-from .. import Configurator
+from .. import (
+    Configurator,
+    path_name
+)
+
 from nnTrainer.data.Metrics import (
     OutliersComputer,
     MetricsComputer,
     Writter
 )
+
 from nnTrainer.data.Database import DatabaseLoader
 from nnTrainer.data.Dataset import DatasetBuilder
 from nnTrainer.data.Preprocess import PreprocessData
@@ -43,17 +48,7 @@ class Trainer():
     '''
     def __init__(self, file_name, architecture, hyperparameters, workers=0, step=None):
         # Path names
-        self.path_name = {
-            'explore_lr' : '00_explore_lr',
-            'grid' : '01_grid',
-            'optimization' : '02_optimization',
-            'tuning_batch' : '03_tuning_batch',
-            'tuning_lr' : '04_tuning_lr',
-            'lineal' : '05_lineal',
-            'random_state' : '06_random_state',
-            'around_exploration' : '07_around_exploration',
-            'recovering' : 'recovering' 
-        }
+        self.path_name = path_name
         
         # main config object
         self.config = Configurator()
@@ -157,14 +152,15 @@ class Trainer():
         general_folder = f'{arch}_{dim}'
 
         step_name = {
-            'grid' : '',
-            'optimization' : f'{self.optim}_{self.crit}',
-            'tuning_batch' : f'batches_{self.batch_size}',
-            'tuning_lr' : f'lr_{self.learning_rate}',
-            'explore_lr' : f'lr_{self.learning_rate}',
-            'recovering' : f'lr_{self.learning_rate}',
-            'random_state' : f"rs_{self.config.get_custom('random_state')}",
-            'around_exploration' : f"ae_{self.learning_rate}_{self.batch_size}"
+            'Grid' : '',
+            'Optimization' : f'{self.optim}_{self.crit}',
+            'TuningBatch' : f'batches_{self.batch_size}',
+            'TuningLr' : f'lr_{self.learning_rate}',
+            'Lineal' : f'lr_{self.learning_rate}',
+            'Recovering' : f'lr_{self.learning_rate}',
+            'RandomState' : f"rs_{self.config.get_custom('random_state')}",
+            'AroundExploration' : f"ae_{self.learning_rate}_{self.batch_size}",
+            'Testing' : '',
         }
 
         file_name = self.file_name

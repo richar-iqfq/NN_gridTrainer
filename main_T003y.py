@@ -1,17 +1,18 @@
 import nnTrainer
+from nnTrainer.launch.LaunchBuilder import LaunchBuilder
 
 if __name__=='__main__':
     # Define the grid searchin steps to compute
-    steps = [
-        'grid',
-        'optimization', 
-        # 'restart_grid_from_worst',
-        # 'optimization',
-        # 'random_state',
-        # 'tuning_lr',
-        # 'tuning_batch', 
-        # 'random_state',
-        # 'around_exploration'
+    perform = [
+        nnTrainer.Grid,
+        nnTrainer.Optimization,
+        nnTrainer.RestartGridFromWorst,
+        nnTrainer.Optimization,
+        nnTrainer.RandomState,
+        nnTrainer.TuningLr,
+        nnTrainer.TuningBatch,
+        nnTrainer.RandomState,
+        nnTrainer.AroundExploration
     ]
 
     ##############
@@ -46,7 +47,7 @@ if __name__=='__main__':
     )
 
     # Training launcher
-    mb = nnTrainer.Launcher(steps)
+    mb = LaunchBuilder(perform)
 
     # Launch the training
-    mb.Run()
+    mb.launch_training()

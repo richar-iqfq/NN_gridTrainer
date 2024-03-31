@@ -1,21 +1,33 @@
 __coder__ = 'Ricardo (richariqfq)'
 __version__ = '1.0.0'
 
-# ---- Constants ----
-
-# Set training steps
-grid = 'grid'
-optimization = 'optimization'
-random_state = 'random_state'
-tuning_batch = 'tuning_batch'
-tuning_lr = 'tuning_lr'
-lineal = 'lineal'
-around_exploration = 'around_exploration'
-restart_grid_from_worst = 'restart_grid_from_worst'
-
 from nnTrainer.config.Configurator import Configurator
+
+# ---------------- Constants ------------------
+# Set training steps
+Grid = 'Grid'
+Optimization = 'Optimization'
+RandomState = 'RandomState'
+TuningBatch = 'TuningBatch'
+TuningLr = 'TuningLr'
+Lineal = 'Lineal'
+AroundExploration = 'AroundExploration'
+RestartGridFromWorst = 'RestartGridFromWorst'
+Testing = 'Testing'
+
+# Path by step
+path_name = {
+    'Grid' : 'Grid',
+    'Optimization' : 'Optimization',
+    'TuningBatch' : 'TuningBatch',
+    'TuningLr' : 'TuningLr',
+    'Lineal' : 'Lineal',
+    'RandomState' : 'RandomState',
+    'AroundExploration' : 'AroundExploration',
+    'Recovering' : 'Recovering',
+    'RestartGridFromWorst' : 'Grid',
+    'Testing' : 'Test',
+}
 
 # Instance singleton configurator
 config = Configurator()
-
-from .launch.Launcher import Launcher

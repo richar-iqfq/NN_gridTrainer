@@ -2,6 +2,8 @@ import os
 
 import pandas as pd
 
+from .. import path_name
+
 class Reader():
     '''
     Better neural network aschitecture reader
@@ -22,17 +24,7 @@ class Reader():
     def __init__(self, hidden_layers, extra_keyword, step='grid'):
         self.name = f'Net_{hidden_layers}Hlayer'
 
-        self.path_name = {
-            'explore_lr' : '00_explore_lr',
-            'grid' : '01_grid',
-            'optimization' : '02_optimization',
-            'tuning_batch' : '03_tuning_batch',
-            'tuning_lr' : '04_tuning_lr',
-            'lineal' : '05_lineal',
-            'random_state' : '06_random_state',
-            'around_exploration' : '07_around_exploration',
-            'recovering' : 'recovering' 
-        }
+        self.path_name = path_name
 
         path = os.path.join('Training_results', self.path_name[step])
     
