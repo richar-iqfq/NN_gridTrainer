@@ -1,3 +1,4 @@
 *.npy
 __pycache__/
 Training_results/
+logs/

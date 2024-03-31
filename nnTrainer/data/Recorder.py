@@ -23,6 +23,9 @@ class Recorder():
         return pd.read_csv(self.record_path)
     
     def __create_record(self) -> None:
+        if not os.path.isdir('logs'):
+            os.makedirs('logs')
+
         data = {
             'code': ['A000'],
             'scaled': [False],
