@@ -29,10 +29,10 @@ class Testing(MainLauncher):
 
         # Set architecture and hyperparameters
         hidden_layers = network['hidden_layers']
-        Network = self.Networks[hidden_layers]
+        Network = self.build_network_name(hidden_layers)
 
         architecture = {
-            'model' : Network,
+            'num_layers' : hidden_layers,
             'num_targets' : self.num_targets,
             'num_features' : self.config.get_json('num_features'),
             'dimension' : network['dimension'],

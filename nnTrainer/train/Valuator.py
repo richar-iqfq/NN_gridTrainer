@@ -17,7 +17,7 @@ from nnTrainer.data.Database import DatabaseLoader
 from nnTrainer.data.Dataset import DatasetBuilder
 
 # Here we import the different models for trainning
-from nnTrainer.train.Models import (
+from nnTrainer.train.ModelsOld import (
     Net_1Hlayer,
     Net_2Hlayer,
     Net_3Hlayer,

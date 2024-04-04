@@ -25,15 +25,8 @@ from nnTrainer.data.Preprocess import PreprocessData
 from nnTrainer.data.Plots import PlotsBuilder
 from nnTrainer.tools.Array import process_array
 
-# Here we import the different models for trainning
-from nnTrainer.train.Models import (
-    Net_1Hlayer,
-    Net_2Hlayer,
-    Net_3Hlayer,
-    Net_4Hlayer,
-    Net_5Hlayer,
-    Net_6Hlayer
-)
+# Here we import the model trainning
+from nnTrainer.train.Models import NetHiddenLayers
 
 #================================ Trainer ===============================================
 class Trainer():
@@ -84,7 +77,7 @@ class Trainer():
         self.save_plots = True
 
         # Architecture variable assignment
-        self.model_name = architecture['model']
+        self.num_layers = architecture['num_layers']
         self.num_features = architecture['num_features']
         self.num_targets = architecture['num_targets']
         self.dimension = architecture['dimension']
@@ -102,7 +95,7 @@ class Trainer():
         self.is_plots = False
 
         # Model definition
-        self.model = eval(f'{self.model_name}({self.num_features}, {self.num_targets}, {self.dimension}, {self.activation_functions})')
+        self.model = eval(f'NetHiddenLayers({self.num_features}, {self.num_targets}, {self.num_layers}, {self.dimension}, {self.activation_functions})')
 
         # Build routes
         self.plots_path, self.pred_path = self.__build_routes()

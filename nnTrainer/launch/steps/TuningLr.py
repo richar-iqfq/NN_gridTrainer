@@ -20,7 +20,7 @@ class TuningLr(MainLauncher):
         for hidden_size in range(self.start_point, self.max_hidden_layers+1):
             logging.info(f'Searching {hidden_size} layers (Parted: {self.parted})')
 
-            Network = self.Networks[hidden_size]
+            Network = self.build_network_name(hidden_size)
 
             print('.'*50)
             print(f'{Network} Parted: {self.parted}')
@@ -71,7 +71,7 @@ class TuningLr(MainLauncher):
                 for learning_rate in learning_rates:
 
                     architecture = {
-                        'model' : Network,
+                        'num_layers' : hidden_size,
                         'num_targets' : self.num_targets,
                         'num_features' : self.num_features,
                         'dimension' : network_step['dimension'],

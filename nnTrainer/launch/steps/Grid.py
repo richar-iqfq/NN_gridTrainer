@@ -32,7 +32,7 @@ class Grid(MainLauncher):
         for hidden_size in range(self.start_point, self.max_hidden_layers+1):
             logging.info(f'Searching {hidden_size} layers')
 
-            Network = self.Networks[hidden_size]
+            Network = self.build_network_name(hidden_size)
             if hidden_size != 1:
                 total_architectures = (self.max_neurons - (self.min_neurons-1) )*len(self.af_list)
 
@@ -53,7 +53,7 @@ class Grid(MainLauncher):
                     for af in initial_af:
 
                         architecture = {
-                            'model' : Network,
+                            'num_layers' : hidden_size,
                             'num_targets' : self.num_targets,
                             'num_features' : self.num_features,
                             'dimension' : dimension,
@@ -99,7 +99,7 @@ class Grid(MainLauncher):
                             final_af = tuple(final_af)
                             
                             architecture = {
-                                'model' : Network,
+                                'num_layers' : hidden_size,
                                 'num_targets' : self.num_targets,
                                 'num_features' : self.num_features,
                                 'dimension' : dimension,
@@ -125,7 +125,7 @@ class Grid(MainLauncher):
 
             if hidden_size > 1:
                 logging.info(f'Searching {hidden_size} layers')
-                Network = self.Networks[hidden_size]
+                Network = self.build_network_name(hidden_size)
                 file = Network + f'{self.extra_name}.csv'
 
                 print('.'*50)
@@ -148,7 +148,7 @@ class Grid(MainLauncher):
 
                     for final_af in final_af_list:
                         architecture = {
-                            'model' : Network,
+                            'num_layers' : hidden_size,
                             'num_targets' : self.num_targets,
                             'num_features' : self.num_features,
                             'dimension' : network_step['dimension'],

@@ -13,7 +13,7 @@ class TuningBatch(MainLauncher):
 
         self.actual_step = 'TuningBatch'
 
-    def nearest_powers_of_two(self, hidden_size: int, Network: str, file: str):
+    def nearest_powers_of_two(self, hidden_size: int, file: str):
         logging.info(f'Searching nearest powers of two in batches (Parted: {self.parted})')
         print('\n', '#'*16, ' Batch powering... ', '#'*16, '\n')
         
@@ -32,7 +32,7 @@ class TuningBatch(MainLauncher):
                 print(f'Batch size => {batch_size}\n')
 
                 architecture = {
-                    'model' : Network,
+                    'num_layers' : hidden_size,
                     'num_targets' : self.num_targets,
                     'num_features' : self.num_features,
                     'dimension' : network_step['dimension'],
@@ -51,7 +51,7 @@ class TuningBatch(MainLauncher):
                     pbar.update()
                     continue
     
-    def three_increments_and_decrements(self, hidden_size: int, Network: str, file: str):
+    def three_increments_and_decrements(self, hidden_size: int, file: str):
         logging.info(f'Searching increments in batches (Parted: {self.parted})')
         print('\n', '#'*16, ' Testing three increments... ', '#'*16, '\n')
         
@@ -76,7 +76,7 @@ class TuningBatch(MainLauncher):
                 print(f'Batch size => {batch_size}\n')
 
                 architecture = {
-                    'model' : Network,
+                    'num_layers' : hidden_size,
                     'num_targets' : self.num_targets,
                     'num_features' : self.num_features,
                     'dimension' : network_step['dimension'],
@@ -102,7 +102,7 @@ class TuningBatch(MainLauncher):
         
         for hidden_size in range(self.start_point, self.max_hidden_layers+1):
             logging.info(f'Searching {hidden_size} layers (Parted: {self.parted})')
-            Network = self.Networks[hidden_size]
+            Network = self.build_network_name(hidden_size)
 
             print('.'*50)
             print(f'{Network} Parted: {self.parted}')
@@ -153,7 +153,7 @@ class TuningBatch(MainLauncher):
                 for batch_size in batches:
 
                     architecture = {
-                        'model' : Network,
+                        'num_layers' : hidden_size,
                         'num_targets' : self.num_targets,
                         'num_features' : self.num_features,
                         'dimension' : network_step['dimension'],
@@ -176,11 +176,11 @@ class TuningBatch(MainLauncher):
 
             ######################## Testing nearest powers of two in batches ##########################
             if 'nearest_powers_of_two' in extra:
-                self.nearest_powers_of_two(hidden_size, Network, file)
+                self.nearest_powers_of_two(hidden_size, file)
 
             ######################## Testing three increments and decrements in batches ##########################
             if 'three_increments_and_decrements' in extra:
-                self.three_increments_and_decrements(hidden_size, Network, file)
+                self.three_increments_and_decrements(hidden_size, file)
         
         logging.info(f'Tuning batch search complete (Parted: {self.parted})')
         print('\nBatch search complete...\n')

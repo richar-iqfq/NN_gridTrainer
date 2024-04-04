@@ -11,15 +11,6 @@ class MainLauncher():
     Customizable class to launch multiple architectures to training and watch the progress in status bar
     '''
     def __init__(self):
-        self.Networks: dict = {
-            1 : 'Net_1Hlayer',
-            2 : 'Net_2Hlayer',
-            3 : 'Net_3Hlayer',
-            4 : 'Net_4Hlayer',
-            5 : 'Net_5Hlayer',
-            6 : 'Net_6Hlayer'
-        }
-
         # Hidden size to start the searching after the grid step
         self.initial_hidden_size_after_grid: int = 1
 
@@ -58,6 +49,9 @@ class MainLauncher():
         self.train_ID: str = self.config.get_inputs('train_ID')
 
         logging.basicConfig(filename=f'logs/{self.train_ID}.log', level=logging.INFO)
+
+    def build_network_name(self, hidden_size: int):
+        return f'Net_{hidden_size}Hlayer'
 
     def launch(self, trainer: Trainer) -> tuple:
         '''
