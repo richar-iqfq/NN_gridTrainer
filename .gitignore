@@ -2,3 +2,4 @@
 __pycache__/
 Training_results/
 logs/
+test*

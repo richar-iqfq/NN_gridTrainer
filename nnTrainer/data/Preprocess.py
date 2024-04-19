@@ -29,7 +29,8 @@ class PreprocessData():
         self.v_max = self.config.get_inputs('v_max')
 
         self.train_ID = self.config.get_inputs('train_ID')
-        self.scale_y = self.config.get_inputs('scale_y')
+        self.lineal_output = self.config.get_custom('lineal_output')
+        self.scale_y = False if self.lineal_output else True
         
         self.random_state = self.config.get_custom('random_state')
 

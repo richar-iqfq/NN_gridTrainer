@@ -178,15 +178,15 @@ class MetricsComputer():
 
         if self.__check_nan_values(y, y_pred):
             for i, target in enumerate(self.targets):
-                MAE[target] = 1
-                RMSE[target] = 1
+                MAE[target] = 0
+                RMSE[target] = 0
                 acc[target] = 0
-                r2[target] = 1
+                r2[target] = 0
                 
-            MAE['general'] = 1
-            RMSE['general'] = 1
+            MAE['general'] = 0
+            RMSE['general'] = 0
             acc['general'] = 0
-            r2['general'] = 1
+            r2['general'] = 0
 
         else:
             MAE['general'] = mean_absolute_error(y, y_pred)
@@ -205,7 +205,11 @@ class MetricsComputer():
                 y_pred_target = y_pred[:,i]
 
                 r2_target = np.corrcoef(y_target+self.alpha, y_pred_target+self.alpha)[0,1]**2
-                r2[target] = r2_target if r2_target else 0
+            
+                if np.isnan(r2_target):
+                    r2_target = 0
+                
+                r2[target] = r2_target
 
                 r2_general += r2_target
                 
@@ -219,94 +223,3 @@ class MetricsComputer():
             r2['general'] = r2_general/len(self.targets)
 
         return MAE, RMSE, acc, r2
-    
-class Writter():
-    def __init__(self, path: str, file_name: str, plots_path: str) -> None:
-        self.config = Configurator()
-
-        self.targets = self.config.get_json('targets')
-        self.metrics_file = os.path.join(path, file_name)
-        self.predictions_file = os.path.join(plots_path, 'predictions.csv')
-
-        self.standard_names, self.result_names, self.total_names = self.__get_column_names()
-
-    def __get_column_names(self):
-        standard_column_names = [ 
-            'dimension', 'architecture', 'parameters', 
-            'optimizer', 'loss_function', 'epochs',
-            'batch_size', 'lr', 'random_state'
-        ]
-
-        training_column_names = [
-            'training_time', 'train_loss', 'validation_loss', 'test_loss'
-        ]
-
-        MAE_val_column_names = [f'MAE_val_{target}' for target in self.targets]
-        MAE_test_column_names = [f'MAE_test_{target}' for target in self.targets]
-
-        RMSE_val_column_names = [f'RMSE_val_{target}' for target in self.targets]
-        RMSE_test_column_names = [f'RMSE_test_{target}' for target in self.targets]
-
-        acc_val_column_names = [f'acc_val_{target}' for target in self.targets]
-        acc_test_column_names = [f'acc_test_{target}' for target in self.targets]
-        
-        r2_val_column_names = [f'r2_val_{target}' for target in self.targets] 
-        r2_test_column_names = [f'r2_test_{target}' for target in self.targets]
-        
-        general_val_column_names = ['MAE_val_general', 'RMSE_val_general', 'acc_val_general', 'r2_val_general']
-        general_test_column_names = ['MAE_test_general', 'RMSE_test_general', 'acc_test_general', 'r2_test_general']
-        outliers_column_names = [f'outliers_{target}' for target in self.targets] + ['outliers_general']
-
-        # Sum all the lists
-        results_column_names = training_column_names + MAE_val_column_names + MAE_test_column_names + \
-                                RMSE_val_column_names + RMSE_test_column_names + acc_val_column_names + \
-                                acc_test_column_names + r2_val_column_names + r2_test_column_names + \
-                                general_val_column_names + general_test_column_names + outliers_column_names
-
-        # Total column
-        total_column_names = standard_column_names + results_column_names
-
-        return standard_column_names, results_column_names, total_column_names
-
-    def __check_metrics_file(self):
-        if not os.path.isfile(self.metrics_file):
-            with open(self.metrics_file, 'w') as txt:
-                txt.write(','.join(self.total_names))
-
-    def write_metrics(self, standard_line: list, result_values: dict, outliers: dict):
-        '''
-        Save all the results inside csv file
-        '''
-        values = {**result_values, **outliers}
-
-        self.__check_metrics_file()
-
-        results_line = []
-        for column in self.result_names:
-            if 'acc' in column:
-                value = np.round(values[column]*100, 2)
-            else:
-                value = np.round(values[column], 4)
-
-            results_line.append(value)
-
-        final_string = [str(f) for f in standard_line + results_line]
-
-        line = ','.join(final_string)
-        with open(self.metrics_file, 'a') as txt:
-            txt.write(f'\n{line}')
-
-    def write_predictions(self, ID, y, y_pred):
-        '''
-        write results in csv files
-        '''
-        values = {
-            'ID' : ID,
-        }
-
-        for i, target in enumerate(self.targets):
-            values[target] = y[:,i]
-            values[f'{target}_pred'] = y_pred[:,i]
-
-        predictions = pd.DataFrame(values)
-        predictions.to_csv(self.predictions_file, index=False)

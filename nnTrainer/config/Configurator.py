@@ -2,20 +2,7 @@ import os
 import json
 import copy
 from configparser import ConfigParser
-
-# Meta class for singleton
-class SingletonMeta(type):
-    '''
-    Singleton meta class for config class
-    '''
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-            
-        return cls._instances[cls]
+from nnTrainer.base_class.Singleton import SingletonMeta
 
 # Configurator class
 class Configurator(metaclass=SingletonMeta):
@@ -39,13 +26,14 @@ class Configurator(metaclass=SingletonMeta):
             'save_plots' : True, # If true, the trainer will storage all the metric plots
             'save_full_predictions' : False, # If true, generates the final file with the targets unscaled
             'workers' : 0, # Number of workers for the training
-            'reader_criteria' : 'acc_val', # criteria to choose the better network
+            'reader_criteria' : 'R2Test_i', # criteria to choose the better network
             'percent_outliers' : 0.08, # Tolerance for outliers
             'network_tolerance' : 0.12, # Tolerance for n_parameters percentage
             'drop' : False, # File name with the extra molecules to be dropped from database
             'config_file' : 'config.json', # Configuration file with features and other relevant parameters
             'specific_param_file' : False, # Especific parameters filename for scaling
             'outliers_strategy' : 'statistical_difference', # The outliers definition strategy to be used
+            'training_codes_database' : 'Training_results/dabaseCodes.db', # Database to store training codes
         }
         
         # Hyperparameters
@@ -63,18 +51,17 @@ class Configurator(metaclass=SingletonMeta):
 
         # Target
         self.inputs: dict = {
-            'database' : 'dataset_final_sorted_2.4.3.csv',
-            'scale_y' : True, # If true, target will be scaled to the interval (0, 1)
-            'lineal_output' : False, # If true, no output activation layer will be used
+            'database' : 'dataset_final_sorted_3.1.0.csv',
             'v_min' : [0, 0, 0, 0, 0, 0], # Min value to scale each target value
             'v_max' : [1, 1, 1, 1, 1, 1], # Max value to scale each target value
             'drop_file' : None, # File with the list of molecules to be drop from database in training
-            'train_ID' : 'A000' # General ID for the training
+            'train_ID' : 'T000' # General ID for the training
         }
 
         # Custom
         self.custom: dict = {
             'extra_filename' : 'default', # Extra words that'll join the output file name
+            'lineal_output' : False, # If true, no output activation layer will be used
             'seed' : 3358, # Seed for the alleatory spliting
             'random_state' : 123, # Random state for the Split_dataset function
             'parted' : None, # Can be 1, 2 or 3. Refers to the split of the training.
@@ -111,6 +98,8 @@ class Configurator(metaclass=SingletonMeta):
         self.json:dict = {
             'features': '',
             'num_features': '',
+            'targets': '',
+            'num_targets': '',
             'optimizers': '',
             'loss_functions': '',
             'af_valid': ''
@@ -131,7 +120,7 @@ class Configurator(metaclass=SingletonMeta):
             batch_rate_range, n_tries, n_networks, start_point, save_plots, workers,
             save_full_predictions, reader_criteria, percent_outliers, n_pics, drop,
             drop_model_outliers, config_file, specific_param_file, num_epochs, batch_size,
-            learning_rate, optimizer, criterion, target, b, alpha, scale_y, drop_file,
+            learning_rate, optimizer, criterion, target, b, alpha, drop_file,
             train_ID, lineal_output, extra_filename, parted, seed, random_state,
             limit_threads
         '''
@@ -234,13 +223,12 @@ class Configurator(metaclass=SingletonMeta):
 
         self.config_object['inputs'] = {
             'database' : self.inputs['database'],
-            'scale_y' : self.inputs['scale_y'],
-            'lineal_output' : self.inputs['lineal_output'],
             'train_ID' : self.inputs['train_ID']
         }
 
         self.config_object['custom'] = {
-            'seed' : self.custom['seed']
+            'seed' : self.custom['seed'],
+            'lineal_output' : self.custom['lineal_output'],
         }
 
         self.config_object['monitoring'] = {

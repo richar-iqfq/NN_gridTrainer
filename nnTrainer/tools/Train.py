@@ -1,4 +1,6 @@
 import itertools
+import random
+import string
 
 import numpy as np
 
@@ -148,3 +150,8 @@ def get_random_layer_sizes(hidden_layers: int, max_neurons: int, seed: int=None)
         LY_combinations.append(T[index])
 
     return LY_combinations
+
+def generate_random_string(n: int) -> str:
+    letters_list = random.choices(string.ascii_letters, k=25)
+
+    return ''.join(letters_list)

@@ -112,3 +112,4 @@ class DatabaseLoader():
         self.final_size = len(cleaned_dataframe)
 
         return cleaned_dataframe
+    

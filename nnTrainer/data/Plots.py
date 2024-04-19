@@ -74,6 +74,9 @@ class PlotsBuilder():
     def regression_plots(self, values_plot: dict):
         fig_regression_path = self.__make_regression_path()
 
+        y_train = values_plot['y_train']
+        ytrain_pred = values_plot['ytrain_pred']
+        
         y_val = values_plot['y_val']
         yval_pred = values_plot['yval_pred']
 
@@ -81,36 +84,49 @@ class PlotsBuilder():
         ytest_pred = values_plot['ytest_pred']
 
         # Detach and move to cpu
+        y_train = process_tensor(y_train)
+        ytrain_pred = process_tensor(ytrain_pred)
+
         y_val = process_tensor(y_val)
         yval_pred = process_tensor(yval_pred)
         
         y_test = process_tensor(y_test)
         ytest_pred = process_tensor(ytest_pred)
 
+
+        r2_train = values_plot['r2_train']
         r2_val = values_plot['r2_val']
         r2_test = values_plot['r2_test']
 
+        boolean_outliers_train, _ = self.outliers_calc.get_numerical_outliers(y_train, ytrain_pred)
         boolean_outliers_val, _ = self.outliers_calc.get_numerical_outliers(y_val, yval_pred)
         boolean_outliers_test, _ = self.outliers_calc.get_numerical_outliers(y_test, ytest_pred)
 
         # Build and save plots
         for i, target in enumerate(self.targets):
-            fig_regression, ax_regression = plt.subplots(2)
+            fig_regression, ax_regression = plt.subplots(3)
+            plt.subplots_adjust(
+                top=0.94,
+                bottom=0.06,
+                left=0.09,
+                right=0.96,
+                hspace=0.24,
+            )
 
             fig_regression.suptitle(f'Regression {target}', weight='bold')
-            fig_regression.set_size_inches(self.w, self.h)
+            fig_regression.set_size_inches(self.h-3, self.w)
 
-            y = [y_val[:,i], y_test[:,i]]
-            y_pred = [yval_pred[:,i], ytest_pred[:,i]]
+            y = [y_train[:,i], y_val[:,i], y_test[:,i]]
+            y_pred = [ytrain_pred[:,i], yval_pred[:,i], ytest_pred[:,i]]
             
-            r2 = [r2_val[target], r2_test[target]]
+            r2 = [r2_train[target], r2_val[target], r2_test[target]]
 
-            label = ['Validation', 'Test']
-            style = ['.r', '.m']
+            label = ['Train', 'Validation', 'Test']
+            style = ['.g', '.r', '.m']
 
-            boolean_outliers = [boolean_outliers_val[target], boolean_outliers_test[target]]
+            boolean_outliers = [boolean_outliers_train[target], boolean_outliers_val[target], boolean_outliers_test[target]]
 
-            for i in range(2):
+            for i in range(3):
                 outliers_count = np.count_nonzero(boolean_outliers[i])
 
                 ax_regression[i].plot(y[i], y[i], '-b')
@@ -129,7 +145,11 @@ class PlotsBuilder():
         fig_accuracy, ax_accuracy = plt.subplots(1)
         fig_accuracy.set_size_inches(self.w, self.h)
 
+        ax_accuracy.plot(values_plot['general_acc_train'], '--r')
         ax_accuracy.plot(values_plot['general_acc_val'], '--g')
+
+        ax_accuracy.legend(['Train', 'Validation'])
+
         ax_accuracy.set_xlabel('Epochs')
         ax_accuracy.set_ylabel('Accuracy %')
 
@@ -139,17 +159,21 @@ class PlotsBuilder():
             fig_accuracy.savefig(os.path.join(self.plots_path, 'acc.pdf'), dpi=self.dpi, format='pdf')
 
     def regression_over_epoch_plot(self, values_plot: dict):
-        fig4, ax4 = plt.subplots(1)
-        fig4.set_size_inches(self.w, self.h)
+        fig, axis = plt.subplots(1)
+        fig.set_size_inches(self.w, self.h)
 
-        ax4.plot(values_plot['general_r2_val'])
-        ax4.set_xlabel('Epochs')
-        ax4.set_ylabel('r2')
+        axis.plot(values_plot['general_r2_train'])
+        axis.plot(values_plot['general_r2_val'])
 
-        ax4.set_title('General Regression coeficient', weight='bold')
+        axis.legend(['Train', 'Validation'])
+
+        axis.set_xlabel('Epochs')
+        axis.set_ylabel('r2')
+
+        axis.set_title('General Regression coeficient', weight='bold')
 
         if self.save_plots:
-            fig4.savefig(os.path.join(self.plots_path, 'reg.pdf'), dpi=self.dpi, format='pdf')
+            fig.savefig(os.path.join(self.plots_path, 'reg.pdf'), dpi=self.dpi, format='pdf')
 
     def full_scaled_plot(self, y: np.ndarray, y_pred: np.ndarray):
         fig_full_regression_path = self.__make_full_regression_path()
@@ -199,7 +223,8 @@ class PlotsBuilder():
                     verticalalignment='top', bbox=props)
 
             if self.save_plots:
-                fig_full.savefig(os.path.join(fig_full_regression_path, f"{target.replace('/', '-')}_full.pdf"), dpi=self.dpi, format='pdf')
+                if self.config.get_custom('lineal_output'):
+                    fig_full.savefig(os.path.join(fig_full_regression_path, f"{target.replace('/', '-')}_full.pdf"), dpi=self.dpi, format='pdf')
         
         # update general outliers
         outliers_dict['outliers_general'] = outliers_general
@@ -207,7 +232,7 @@ class PlotsBuilder():
         return outliers_dict
 
     def full_unscaled_plot(self, y:np.ndarray, y_pred: np.ndarray):
-        if self.config.get_inputs('scale_y') == True or self.config.get_custom('lineal_output') == False:
+        if self.config.get_custom('lineal_output') == False:
             y_unscaled = self.processer.y_unscale_routine(y)
             y_unscaled_pred = self.processer.y_unscale_routine(y_pred)
 
@@ -267,8 +292,7 @@ class PlotsBuilder():
     def build_plots(self, values_plot: dict):
         '''
         Build all the required plots
-        '''        
-        
+        '''
         # Loss graphic
         self.loss_plot(values_plot)
 

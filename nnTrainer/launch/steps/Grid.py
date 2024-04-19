@@ -4,7 +4,7 @@ import copy
 
 from tqdm import tqdm
 
-from nnTrainer.launch.Main import MainLauncher
+from nnTrainer.base_class.Launcher import MainLauncher
 from nnTrainer.train.Trainer import Trainer
 from nnTrainer.tools.Train import get_random_activation_functions
 

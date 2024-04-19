@@ -1,6 +1,6 @@
 import logging
 
-from nnTrainer.launch.Main import MainLauncher
+from nnTrainer.base_class.Launcher import MainLauncher
 from nnTrainer.launch.steps.Grid import Grid
 
 class RestartGridFromWorst(MainLauncher):

@@ -1,0 +1,87 @@
+{
+    "data_structure": {
+        "column_names": [
+            "ID",
+            "NAtoms",
+            "Ne",
+            "Homo-4",
+            "Homo-3",
+            "Homo-2",
+            "Homo-1",
+            "Homo",
+            "Lumo",
+            "Lumo+1",
+            "Lumo+2",
+            "Lumo+3",
+            "Lumo+4",
+            "CIe",
+            "HF",
+            "ET",
+            "EV",
+            "EJ",
+            "EK",
+            "ENuc",
+            "Dipole",
+            "Volume",
+            "Pgroup",
+            "Factor",
+            "X",
+            "Y",
+            "Z",
+            "XX",
+            "YY",
+            "ZZ",
+            "XY",
+            "XZ",
+            "YZ",
+            "Theta",
+            "Mu",
+            "B_opt4"
+        ],
+        "features": [
+            "Homo-4",
+            "Homo-3",
+            "Homo-2",
+            "Homo-1",
+            "Homo",
+            "Lumo",
+            "Lumo+1",
+            "Lumo+2",
+            "Lumo+3",
+            "Lumo+4",
+            "EK",
+            "ENuc",
+            "Dipole",
+            "Volume"
+        ],
+        "targets": [
+            "B_opt4"
+        ]
+    },
+    "network_structure": {
+        "optimizers": [
+            "Adam",
+            "Adagrad",
+            "Adadelta",
+            "AdamW",
+            "Adamax"
+        ],
+        "loss_functions": [
+            "nn.L1Loss()",
+            "nn.MSELoss()",
+            "nn.HuberLoss()",
+            "nn.SmoothL1Loss()"
+        ],
+        "af_valid": [
+            "nn.ELU()",
+            "nn.LeakyReLU()",
+            "nn.ReLU()",
+            "nn.SELU()",
+            "nn.Sigmoid()",
+            "nn.Tanh()",
+            "None",
+            "nn.RReLU()",
+            "nn.Tanhshrink()"
+        ]
+    }
+}

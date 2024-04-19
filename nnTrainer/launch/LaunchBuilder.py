@@ -3,19 +3,15 @@ import os
 import numpy as np
 
 import nnTrainer.launch.steps as steps
-from nnTrainer.data.Recorder import Recorder
+from nnTrainer.data.Sql import SqlDatabase
 
 class LaunchBuilder():
     def __init__(self, perform: list) -> None:
         self.perform = perform
 
-        # Record training
-        self.record_training()
-
-    def record_training(self) -> None:
-        recorder = Recorder()
-
-        recorder.save_values(self.perform)
+        # Record launch to database
+        self.database_recorder = SqlDatabase()
+        self.database_recorder.create_launch_record(perform)
 
     def launch_training(self, network: dict=False, last_step: str=False):
         os.system('clear')

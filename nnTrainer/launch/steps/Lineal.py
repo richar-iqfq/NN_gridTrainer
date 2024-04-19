@@ -2,7 +2,7 @@ import logging
 
 from scipy.optimize import minimize
 
-from nnTrainer.launch.Main import MainLauncher
+from nnTrainer.base_class.Launcher import MainLauncher
 from nnTrainer.train.Trainer import Trainer
 
 class Lineal(MainLauncher):

@@ -1,4 +1,4 @@
-from nnTrainer.launch.Main import MainLauncher
+from nnTrainer.base_class.Launcher import MainLauncher
 from nnTrainer.train.Trainer import Trainer
 
 class Testing(MainLauncher):

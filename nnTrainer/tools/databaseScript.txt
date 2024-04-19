@@ -1,0 +1,71 @@
+DROP TABLE IF EXISTS Results;
+DROP TABLE IF EXISTS Trains;
+DROP TABLE IF EXISTS Launchs;
+
+CREATE TABLE Launchs
+(
+    LaunchID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Code TEXT UNIQUE,
+    MinNeurons INTEGER,
+    MaxNeurons INTEGER,
+    NumTries INTEGER,
+    NumNetworks INTEGER,
+    ReaderCriteria TEXT,
+    PercentOutliers DOUBLE(3,2),
+    NetworkTolerance DOUBLE(3,2),
+    DropFile TEXT,
+    ConfigFile TEXT,
+    OutliersStrategy TEXT,
+    LinealOutput BOOL,
+    Seed INTEGER,
+    Features TEXT,
+    Targets TEXT,
+    StepOrder TEXT
+);
+
+CREATE TABLE Trains
+(
+    TrainID INTEGER PRIMARY KEY AUTOINCREMENT,
+    NumLayers INTEGER,
+    Dimension TEXT,
+    Activation TEXT,
+    Parameters INTEGER,
+    Optimizer TEXT,
+    LossFunction TEXT,
+    BatchSize TEXT,
+    Lr DOUBLE(10,9),
+    RandomState INTEGER,
+    Epochs INTEGER,
+    Step TEXT,
+    LaunchID INTEGER,
+    FOREIGN KEY (LaunchID) REFERENCES Launchs (LaunchID)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE Results
+(
+    ResultID INTEGER PRIMARY KEY AUTOINCREMENT,
+    TrainingTime DOUBLE(6,4),
+    TrainLoss DOUBLE(5,4),
+    ValidationLoss DOUBLE(5,4),
+    TestLoss DOUBLE(5,4),
+    -- The last value in the i metrics refers to general value
+    MaeVal_i TEXT,
+    RmseVal_i TEXT,
+    AccVal_i TEXT,
+    R2Val_i TEXT,
+    MaeTest_i TEXT,
+    RmseTest_i TEXT,
+    AccTest_i TEXT,
+    R2Test_i TEXT,
+    MaeTrain_i TEXT,
+    RmseTrain_i TEXT,
+    AccTrain_i TEXT,
+    R2Train_i TEXT,
+    Outliers_i TEXT,
+    OutliersGeneral INTEGER,
+    Path TEXT UNIQUE,
+    TrainID INTEGER,
+    FOREIGN KEY (TrainID) REFERENCES Trains (TrainID)
+    ON DELETE CASCADE
+);

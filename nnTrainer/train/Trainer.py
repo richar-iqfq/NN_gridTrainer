@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
 import numpy as np
+import pandas as pd
 
 from .. import (
     Configurator,
@@ -15,15 +16,16 @@ from .. import (
 
 from nnTrainer.data.Metrics import (
     OutliersComputer,
-    MetricsComputer,
-    Writter
+    MetricsComputer
 )
 
 from nnTrainer.data.Database import DatabaseLoader
 from nnTrainer.data.Dataset import DatasetBuilder
 from nnTrainer.data.Preprocess import PreprocessData
 from nnTrainer.data.Plots import PlotsBuilder
+from nnTrainer.data.Sql import SqlDatabase
 from nnTrainer.tools.Array import process_array
+from nnTrainer.tools.Train import generate_random_string
 
 # Here we import the model trainning
 from nnTrainer.train.Models import NetHiddenLayers
@@ -39,15 +41,23 @@ class Trainer():
         File name for the results folder.
 
     '''
-    def __init__(self, file_name, architecture, hyperparameters, workers=0, step=None):
+    def __init__(self, file_name: str, architecture: dict, hyperparameters: dict, step: str, workers=0):
+        # Sql executor
+        self.database_executor = SqlDatabase()
+
         # Path names
-        self.path_name = path_name
-        
+        self.path_code = self.get_path_code()
+        self.path = os.path.join('Training_results', path_name[step]) # Path to store the results
+        self.step = step
+
         # main config object
         self.config = Configurator()
         
         # Targets
         self.targets = self.config.get_json('targets')
+
+        # Train code
+        self.train_code = self.config.get_inputs('train_ID')
 
         # Backend to run in tensor cores
         torch.backends.cuda.matmul.allow_tf32 = True
@@ -59,19 +69,8 @@ class Trainer():
         
         self.device_type = 'cuda' if torch.cuda.is_available() else 'cpu' # Device type
         self.device = torch.device(self.device_type) # Device
-        self.path = os.path.join('Training_results') # Path to store the results
-        
-        if step:
-            self.path = os.path.join(self.path, self.path_name[step])
-            self.step = step
-
-        if not os.path.isdir(self.path):
-            os.makedirs(self.path)
         
         self.file_name = file_name # File where you'll write the results
-
-        # Result values
-        self.result_values = {}
 
         # Save plots variable
         self.save_plots = True
@@ -101,7 +100,7 @@ class Trainer():
         self.plots_path, self.pred_path = self.__build_routes()
 
         # To define self.parameters
-        self.parameters_count() 
+        self.parameters = self.parameters_count()
 
         # Outliers values per target
         self.outliers_count = {}
@@ -130,7 +129,21 @@ class Trainer():
         self.outliers_calc = OutliersComputer()
         self.metrics_calc = MetricsComputer()
         self.plots_builder = PlotsBuilder(self.plots_path)
-        self.writter = Writter(self.path, self.file_name, self.plots_path)
+        
+        # Sql executor
+        self.database_executor.create_train_record(
+            self.num_layers,
+            self.dimension,
+            self.activation_functions,
+            self.parameters,
+            self.optim,
+            self.crit,
+            self.batch_size,
+            self.learning_rate,
+            self.random_state,
+            self.num_epochs,
+            step
+        )
 
         # ID and data values (x and y already scaled)
         self.ID, self.x, self.y = self.processer.Retrieve_Processed()
@@ -139,34 +152,37 @@ class Trainer():
         self.dataset_builder = DatasetBuilder()
         self.train_dataset, self.val_dataset, self.test_dataset = self.dataset_builder.create_datasets()
 
+    def get_path_code(self) -> str:
+        '''
+        Search if code is not in train results and return the value
+        '''
+        code = generate_random_string(30)
+
+        for i in range(5):
+            if self.database_executor.search_equals('Results', 'Path', code):
+                code = generate_random_string(30)
+            else:
+                break
+
+        return code
+
     def __build_routes(self):
-        dim = str(self.dimension).replace(', ', '|')
-        arch = str(self.activation_functions).replace(', ', '|')
-        general_folder = f'{arch}_{dim}'
+        n_layers = str(self.num_layers).zfill(2)
 
-        step_name = {
-            'Grid' : '',
-            'Optimization' : f'{self.optim}_{self.crit}',
-            'TuningBatch' : f'batches_{self.batch_size}',
-            'TuningLr' : f'lr_{self.learning_rate}',
-            'Lineal' : f'lr_{self.learning_rate}',
-            'Recovering' : f'lr_{self.learning_rate}',
-            'RandomState' : f"rs_{self.config.get_custom('random_state')}",
-            'AroundExploration' : f"ae_{self.learning_rate}_{self.batch_size}",
-            'Testing' : '',
-        }
-
-        file_name = self.file_name
-
-        plots_path = os.path.join(self.path, 'Plots', file_name.replace('.csv', ''), general_folder, step_name[self.step])
-
-        pred_path = os.path.join(self.path, 'Predictions')
-
-        if not os.path.isdir(pred_path):
-            os.makedirs(pred_path)
+        plots_path = os.path.join(
+            self.path,
+            self.train_code,
+            f'{n_layers}HLayers',
+            self.path_code,
+        )
 
         if not os.path.isdir(plots_path):
             os.makedirs(plots_path)
+
+        pred_path = os.path.join(plots_path, 'Predictions')
+
+        if self.config.get_configurations('save_full_predictions'):
+            os.makedirs(pred_path)
 
         return plots_path, pred_path
 
@@ -196,10 +212,7 @@ class Trainer():
         '''
         Return the amount of trainable parameters in network
         '''
-        param = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        self.parameters = param
-
-        return param
+        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
     def reset(self):
         '''
@@ -262,7 +275,27 @@ class Trainer():
         '''
         self.config.save_ini(path)
 
-    def __save_full_predictions(self, x, y_pred):
+    def write_predictions(self, y, y_pred):
+        '''
+        write results in csv files
+        '''
+        values = {
+            'ID' : self.ID,
+        }
+
+        predictions_file = os.path.join(self.plots_path, 'predictions.csv')
+
+        for i, target in enumerate(self.targets):
+            values[target] = y[:,i]
+            values[f'{target}_pred'] = y_pred[:,i]
+
+        predictions = pd.DataFrame(values)
+        predictions.to_csv(predictions_file, index=False)
+
+    def write_full_predictions(self, x, y_pred):
+        '''
+        Write full predictions file
+        '''
         _, y_unscaled = self.processer.Unscale(x, y_pred)
 
         df = self.loader.load_database()
@@ -315,6 +348,35 @@ class Trainer():
 
         return False
 
+    def build_store_values(self, ValidationValues: dict, TestValues: dict, TrainValues: dict, result_values: dict, outliers: dict):
+        store_names = ['Val', 'Test', 'Train']
+        metrics_names = ['Mae', 'Rmse', 'Acc', 'R2']
+        keys = self.targets + ['general']
+
+        store_values = {
+            'training_time' : result_values['training_time'],
+            'train_loss' : result_values['train_loss'],
+            'validation_loss' : result_values['validation_loss'],
+            'test_loss' : float(result_values['test_loss'])
+        }
+
+        values = {
+            'Val' : ValidationValues,
+            'Test' : TestValues,
+            'Train' : TrainValues,
+        }
+
+        # (Val, Test, Train) -> (Mae, Rmse, Acc, R2)
+        for name in store_names:
+            for metric in metrics_names:
+                store_values[f'{metric}{name}_i'] = [values[name][metric][key] for key in keys]
+
+        # Outliers
+        store_values['Outliers_i'] = [outliers[f'outliers_{target}'] for target in self.targets]
+        store_values['OutliersGeneral'] = outliers['outliers_general']
+
+        return store_values
+
     def start_training(self, write=True, allow_print=False, save_plots=False, monitoring=False):
         '''
         Runs training
@@ -347,10 +409,13 @@ class Trainer():
         criterion = eval(self.crit)
 
         # Define the metric lists
+        result_values = {}
         loss_train_list = []
         loss_validation_list = []
         general_acc_validation_list = []
+        general_acc_train_list = []
         general_r2_validation_list = []
+        general_r2_train_list = []
 
         # ======================================================================
         # ========================== Training loop =============================
@@ -398,6 +463,12 @@ class Trainer():
 
                 loss_train_list.append(loss_train.item())
 
+                MAE_train, RMSE_train, acc_train, r2_train = self.metrics_calc.compute(y_train, ytrain_pred)
+
+                # Store metrics
+                general_acc_train_list.append(acc_train['general'])
+                general_r2_train_list.append(r2_train['general'])
+
                 # ---------------------Validation------------------------------
                 # Unique step
                 x_val = copy.deepcopy(x_validation)
@@ -436,7 +507,7 @@ class Trainer():
                     print('\n', '#'*37, ' Training Progress ', '#'*37, '\n')
 
                 if (epoch+1)%10 == 0:
-                    print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {RMSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f}", end='\r')
+                    print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {RMSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f} Loss = {loss_train:.4f}", end='\r')
 
         # ===== Restore best weights when monitoring =====
         if monitoring:
@@ -465,6 +536,12 @@ class Trainer():
 
                 loss_train_list.append(loss_train.item())
 
+                MAE_train, RMSE_train, acc_train, r2_train = self.metrics_calc.compute(y_train, ytrain_pred)
+
+                # Store metrics
+                general_acc_train_list.append(acc_train['general'])
+                general_r2_train_list.append(r2_train['general'])
+
                 # ---------------------Validation------------------------------
                 # Unique step
                 x_val = copy.deepcopy(x_validation)
@@ -486,8 +563,22 @@ class Trainer():
                 general_acc_validation_list.append(acc_val['general'])
                 general_r2_validation_list.append(r2_val['general'])
     
-        # ----------------------------- Test ------------------------
+        # =========================== Final evaluation ===========================
         with torch.no_grad():
+            # ----------------------------- Train ------------------------
+            # Unique step
+            x_train = copy.deepcopy(x_train)
+            y_train = copy.deepcopy(y_train)
+
+            # Load values to device
+            x_train = x_train.to(self.device)
+            y_train = y_train.to(self.device)
+
+            with torch.autocast(device_type=self.device_type):
+                ytrain_pred = self.model(x_train)
+                loss_train = criterion(ytrain_pred, y_train)
+
+            # ----------------------------- Test ------------------------
             # Unique step
             x_test = copy.deepcopy(x_testing)
             y_test = copy.deepcopy(y_testing)
@@ -500,49 +591,73 @@ class Trainer():
                 ytest_pred = self.model(x_test)
                 loss_test = criterion(ytest_pred, y_test)
 
+        # Train
+        loss_train = loss_train.item()
+        loss_train = torch.as_tensor(loss_train)
+
+        # Test
         loss_test = loss_test.item()
         loss_test = torch.as_tensor(loss_test)
 
+        MAE_train, RMSE_train, acc_train, r2_train = self.metrics_calc.compute(y_train, ytrain_pred)
         MAE_test, RMSE_test, acc_test, r2_test = self.metrics_calc.compute(y_test, ytest_pred)
 
         et = time.time() # End time
         elapsed_time = et - st
 
-        # Update metrics dictionary
-        self.result_values['training_time'] = elapsed_time
-        self.result_values['train_loss'] = loss_train.item()
-        self.result_values['validation_loss'] = loss_val.item()
-        self.result_values['test_loss'] = loss_test.numpy()
-        
-        for target in self.targets + ['general']:
-            self.result_values[f'MAE_val_{target}'] = MAE_val[target]
-            self.result_values[f'MAE_test_{target}'] = MAE_test[target]
-            self.result_values[f'RMSE_val_{target}'] = RMSE_val[target]
-            self.result_values[f'RMSE_test_{target}'] = RMSE_test[target]
-            self.result_values[f'acc_val_{target}'] = acc_val[target]
-            self.result_values[f'acc_test_{target}'] = acc_test[target]
-            self.result_values[f'r2_val_{target}'] = r2_val[target]
-            self.result_values[f'r2_test_{target}'] = r2_test[target]
+        # Evaluate full data
+        x, y, y_pred = self.eval_full_data()
 
+        # Update metrics dictionary
+        result_values['training_time'] = elapsed_time
+        result_values['train_loss'] = loss_train.item()
+        result_values['validation_loss'] = loss_val.item()
+        result_values['test_loss'] = loss_test.numpy()
+
+        # Values to plot
         self.values_plot = {
             'loss_train_list' : loss_train_list,
             'loss_validation_list' : loss_validation_list,
             'general_acc_val' : general_acc_validation_list,
+            'general_acc_train' : general_acc_train_list,
             'y_val' : y_val,
             'yval_pred' : yval_pred,
             'y_test' : y_test,
             'ytest_pred' : ytest_pred,
+            'y_train' : y_train,
+            'ytrain_pred' : ytrain_pred,
             'r2_val' : r2_val,
             'r2_test' : r2_test,
-            'general_r2_val' : general_r2_validation_list
+            'r2_train' : r2_train,
+            'general_r2_val' : general_r2_validation_list,
+            'general_r2_train' : general_r2_train_list
         }
-
-        # Evaluate full data
-        x, y, y_pred = self.eval_full_data()
 
         # Build plots
         self.plots_builder.build_plots(self.values_plot)
-        self.outliers = self.plots_builder.build_full_plots(y, y_pred)
+        outliers = self.plots_builder.build_full_plots(y, y_pred)
+
+        # Results dict
+        validation_values = {
+            'Mae' : MAE_val,
+            'Rmse' : RMSE_val,
+            'Acc' : acc_val,
+            'R2' : r2_val
+        }
+
+        test_values = {
+            'Mae' : MAE_test,
+            'Rmse' : RMSE_test,
+            'Acc' : acc_test,
+            'R2' : r2_test
+        }
+
+        train_values = {
+            'Mae' : MAE_train,
+            'Rmse' : RMSE_train,
+            'Acc' : acc_train,
+            'R2' : r2_train
+        }
 
         if write:
             model_file = os.path.join(self.plots_path, 'model.pth')
@@ -552,14 +667,25 @@ class Trainer():
             self.save_model(model_file)
 
             # Metrics
-            self.writter.write_metrics(self.standard_line, self.result_values, self.outliers)
-            
-            # Predictions
-            self.writter.write_predictions(self.ID, y, y_pred)
+            store_values = self.build_store_values(
+                validation_values,
+                test_values,
+                train_values,
+                result_values,
+                outliers
+            )
+
+            self.database_executor.create_result_record(
+                self.plots_path,
+                store_values
+            )
         
             # config.ini
             self.write_config(config_file)
 
+            # Predictions
+            self.write_predictions(y, y_pred)
+
             # Full predictions
             if self.config.get_configurations('save_full_predictions'):
-                self.__save_full_predictions(x, y_pred)
+                self.write_full_predictions(x, y_pred)
