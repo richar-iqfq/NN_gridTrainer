@@ -18,31 +18,31 @@ if __name__=='__main__':
     ##############
     # Parameters #
     ##############
-    ID = 'T002x'
+    # b = 3
+    ID = 'b001'
 
     # Configurator
     config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
-        max_hidden_layers = 6,
+        database = 'results_a-0.2.csv',
+        max_hidden_layers = 30,
         min_neurons = 1,
-        max_neurons = 10,
+        max_neurons = 6,
         n_tries = 150,
         n_networks = 1,
         start_point = 1,
-        num_epochs = 1400,
-        random_state=5502,
+        num_epochs = 800,
+        random_state=1234,
         batch_size=256,
-        scale_y = True,
         learning_rate=0.001,
-        lineal_output = False,
-        reader_criteria = 'r2_val_general',
-        seed = 1202,
+        lineal_output = True,
+        seed = 54891,
         train_ID = ID,
         limit_threads = True,
         save_full_predictions = False,
-        config_file = 'configT001x.json',
+        config_file = 'configb001.json'
     )
 
     # Training launcher

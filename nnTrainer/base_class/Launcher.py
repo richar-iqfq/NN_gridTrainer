@@ -64,30 +64,26 @@ class MainLauncher():
         ----------
         trainer `object of class Trainer`
         '''
+        monitoring = self.config.get_monitoring('state')
         n_parameters = trainer.parameters_count()
         n_train = trainer.database_size()
         
-        # flag to know if training went wrong
-        flag = True
-        
         if self.tol <= 0.12:
             if n_parameters <= self.tol*n_train:
-                # try:
                 time.sleep(1)
-                trainer.start_training(save_plots=self.save_plots, monitoring=True, allow_print=False)
+                flag, message = trainer.start_training(save_plots=self.save_plots, monitoring=monitoring, allow_print=False)
 
                 trainer.close_plots()
-                # except:
-                #     flag = False
+        
         else:
             if n_parameters > 0.12*n_train and n_parameters <= self.tol*n_train:
-                try:
-                    time.sleep(1)
-                    # trainer.start_training(save_plots=self.save_plots, monitoring=True)
+                time.sleep(1)
+                flag, message = trainer.start_training(save_plots=self.save_plots, monitoring=monitoring)
 
-                    # trainer.close_plots()
-                except:
-                    flag = False
+                trainer.close_plots()
+
+        if message != '':
+            logging.info(message)
 
         return flag, trainer
 
@@ -97,10 +93,7 @@ class MainLauncher():
         n_networks = self.config.get_configurations('n_networks')
         
         # Load better network parameters
-        # try:
         better_network = self.reader.recover_best(launch_code, hidden_layers, step, criteria, n_values=n_networks, worst=worst)
-        # except:
-        #     return None
         
         return better_network
     

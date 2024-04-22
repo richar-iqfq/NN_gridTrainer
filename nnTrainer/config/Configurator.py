@@ -26,7 +26,7 @@ class Configurator(metaclass=SingletonMeta):
             'save_plots' : True, # If true, the trainer will storage all the metric plots
             'save_full_predictions' : False, # If true, generates the final file with the targets unscaled
             'workers' : 0, # Number of workers for the training
-            'reader_criteria' : 'R2Test_i', # criteria to choose the better network
+            'reader_criteria' : 'R2Val_i', # criteria to choose the better network
             'percent_outliers' : 0.08, # Tolerance for outliers
             'network_tolerance' : 0.12, # Tolerance for n_parameters percentage
             'drop' : False, # File name with the extra molecules to be dropped from database
@@ -69,6 +69,7 @@ class Configurator(metaclass=SingletonMeta):
 
         # monitor
         self.monitoring: dict = {
+            'state' : False,
             'best_acc' : 0,
             'best_epoch' : 0
         }

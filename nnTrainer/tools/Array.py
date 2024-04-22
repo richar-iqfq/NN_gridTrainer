@@ -31,3 +31,33 @@ def process_array(array: np.ndarray) -> torch.Tensor:
         array = move_to_cpu(array)
 
     return array
+
+def is_upper_lower_artifact(y_pred: np.ndarray, n_targets: int) -> bool:
+    epsilon = 0.003
+    flag = False
+    tol = 10
+
+    # Move to cpu and convert to np.ndarray
+    y_pred = process_tensor(y_pred)
+
+    for i in range(n_targets):
+        # Select target
+        y_target = y_pred[:, i]
+
+        # Get max and min values
+        y_max = np.max(y_target)
+        y_min = np.min(y_target)
+
+        # Get upper and lower values
+        y_up = y_target >= (y_max - epsilon)
+        y_lo = y_target <= (y_min + epsilon)
+
+        # Get count
+        count_up = np.count_nonzero(y_up)
+        count_lo = np.count_nonzero(y_lo)
+
+        if count_lo > tol or count_up > tol:
+            flag = True
+
+    return flag
+

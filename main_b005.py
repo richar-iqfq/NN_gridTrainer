@@ -4,7 +4,7 @@ from nnTrainer.launch.LaunchBuilder import LaunchBuilder
 if __name__=='__main__':
     # Define the grid searchin steps to compute
     perform = [
-        # nnTrainer.Grid,
+        nnTrainer.Grid,
         nnTrainer.Optimization,
         nnTrainer.RestartGridFromWorst,
         nnTrainer.Optimization,
@@ -18,31 +18,31 @@ if __name__=='__main__':
     ##############
     # Parameters #
     ##############
-    ID = 'T006x'
+    # b = 1
+    ID = 'b005'
 
     # Configurator
     config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
-        database = 'dataset_final_sorted_3.1.0.csv',
-        max_hidden_layers = 4,
+        database = 'results_a-0.33.csv',
+        max_hidden_layers = 30,
         min_neurons = 1,
-        max_neurons = 30,
+        max_neurons = 6,
         n_tries = 150,
         n_networks = 1,
-        start_point = 3,
-        num_epochs = 5,
-        random_state=87282,
+        start_point = 1,
+        num_epochs = 800,
+        random_state=1234,
         batch_size=256,
         learning_rate=0.001,
-        lineal_output = False,
-        reader_criteria = 'R2Val_i',
-        seed = 8500,
+        lineal_output = True,
+        seed = 821319,
         train_ID = ID,
         limit_threads = True,
         save_full_predictions = False,
-        config_file = 'configT002x.json'
+        config_file = 'configb005.json'
     )
 
     # Training launcher

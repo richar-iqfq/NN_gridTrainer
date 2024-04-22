@@ -155,3 +155,14 @@ def generate_random_string(n: int) -> str:
     letters_list = random.choices(string.ascii_letters, k=25)
 
     return ''.join(letters_list)
+
+def is_model_stuck(acc_list: list, r2_list: list) -> bool:
+    flag = False
+
+    if np.mean(acc_list[-15::]) == 0:
+        flag = True
+    
+    if np.mean(r2_list[-5::]) == 0:
+        flag = True
+    
+    return flag

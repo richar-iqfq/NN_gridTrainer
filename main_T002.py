@@ -18,7 +18,7 @@ if __name__=='__main__':
     ##############
     # Parameters #
     ##############
-    ID = 'T004x'
+    ID = 'T002'
 
     # Configurator
     config = nnTrainer.Configurator()
@@ -26,19 +26,18 @@ if __name__=='__main__':
     # Update config object with the required parameters
     config.update(
         database = 'dataset_final_sorted_3.1.0.csv',
-        max_hidden_layers = 15,
+        max_hidden_layers = 4,
         min_neurons = 1,
-        max_neurons = 6,
+        max_neurons = 40,
         n_tries = 150,
         n_networks = 1,
         start_point = 1,
-        num_epochs = 5,
-        random_state=51811,
+        num_epochs = 1200,
+        random_state=87282,
         batch_size=256,
         learning_rate=0.001,
         lineal_output = False,
-        reader_criteria = 'r2_val_general',
-        seed = 87881,
+        seed = 8500,
         train_ID = ID,
         limit_threads = True,
         save_full_predictions = False,
