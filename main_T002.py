@@ -4,11 +4,11 @@ from nnTrainer.launch.LaunchBuilder import LaunchBuilder
 if __name__=='__main__':
     # Define the grid searchin steps to compute
     perform = [
-        nnTrainer.Grid,
-        nnTrainer.Optimization,
-        nnTrainer.RestartGridFromWorst,
-        nnTrainer.Optimization,
-        nnTrainer.RandomState,
+        # nnTrainer.Grid,
+        # nnTrainer.Optimization,
+        # nnTrainer.RestartGridFromWorst,
+        # nnTrainer.Optimization,
+        # nnTrainer.RandomState,
         nnTrainer.TuningLr,
         nnTrainer.TuningBatch,
         nnTrainer.RandomState,
@@ -22,7 +22,7 @@ if __name__=='__main__':
 
     # Configurator
     config = nnTrainer.Configurator()
-    
+
     # Update config object with the required parameters
     config.update(
         database = 'dataset_final_sorted_3.1.0.csv',
@@ -48,4 +48,4 @@ if __name__=='__main__':
     mb = LaunchBuilder(perform)
 
     # Launch the training
-    mb.launch_training()
+    mb.launch_training(last_step=nnTrainer.RandomState)

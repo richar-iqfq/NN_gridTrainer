@@ -4,9 +4,9 @@ from nnTrainer.launch.LaunchBuilder import LaunchBuilder
 if __name__=='__main__':
     # Define the grid searchin steps to compute
     perform = [
-        nnTrainer.Grid,
-        nnTrainer.Optimization,
-        nnTrainer.RestartGridFromWorst,
+        # nnTrainer.Grid,
+        # nnTrainer.Optimization,
+        # nnTrainer.RestartGridFromWorst,
         nnTrainer.Optimization,
         nnTrainer.RandomState,
         nnTrainer.TuningLr,
@@ -27,7 +27,7 @@ if __name__=='__main__':
     # Update config object with the required parameters
     config.update(
         database = 'results_a-0.22.csv',
-        max_hidden_layers = 30,
+        max_hidden_layers = 20,
         min_neurons = 1,
         max_neurons = 6,
         n_tries = 150,

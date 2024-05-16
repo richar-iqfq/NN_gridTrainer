@@ -340,6 +340,7 @@ class SqlReader():
                     'num_epochs' : int(train_row['Epochs'].values[0]),
                     'batch_size' : int(train_row['BatchSize'].values[0]),
                     'lr' : float(train_row['Lr'].values[0]),
+                    'parameters' : int(train_row['Parameters']),
                     'acc_test' : float(acc_test_list[-1]),
                     'r2_test' : float(r2_test_list[-1]),
                     'acc_val' : float(acc_val_list[-1]),
@@ -352,7 +353,7 @@ class SqlReader():
         return better_networks
 
     def recover_best(self, LaunchCode: str, NumLayers: int, Step: str, criteria='R2Val_i', n_values=1, worst=False) -> dict:
-        if criteria not in ('R2Val_i', 'R2Test_i', 'OutliersGeneral'):
+        if criteria not in ('R2Val_i', 'R2Test_i', 'OutliersGeneral', 'AccTest_i', 'AccVal_i'):
             raise Exception('Wrong criteria value')
         
         # Retrieve initial data

@@ -137,19 +137,20 @@ class Trainer():
         self.plots_builder = PlotsBuilder(self.plots_path)
         
         # Sql executor
-        self.database_executor.create_train_record(
-            self.num_layers,
-            self.dimension,
-            self.activation_functions,
-            self.parameters,
-            self.optim,
-            self.crit,
-            self.batch_size,
-            self.learning_rate,
-            self.random_state,
-            self.num_epochs,
-            step
-        )
+        if step != 'Recovering':
+            self.database_executor.create_train_record(
+                self.num_layers,
+                self.dimension,
+                self.activation_functions,
+                self.parameters,
+                self.optim,
+                self.crit,
+                self.batch_size,
+                self.learning_rate,
+                self.random_state,
+                self.num_epochs,
+                step
+            )
 
         # ID and data values (x and y already scaled)
         self.ID, self.x, self.y = self.processer.Retrieve_Processed()
@@ -178,12 +179,20 @@ class Trainer():
         '''
         n_layers = str(self.num_layers).zfill(2)
 
-        plots_path = os.path.join(
-            self.path,
-            self.train_code,
-            f'{n_layers}HLayers',
-            self.path_code,
-        )
+        if self.step != 'Recovering':
+            plots_path = os.path.join(
+                self.path,
+                self.train_code,
+                f'{n_layers}HLayers',
+                self.path_code,
+            )
+        else:
+            plots_path = os.path.join(
+                self.path,
+                self.train_code,
+                f'{n_layers}HLayers',
+            )
+
         pred_path = os.path.join(plots_path, 'Predictions')
         
         return plots_path, pred_path
@@ -196,7 +205,8 @@ class Trainer():
             os.makedirs(self.plots_path)
 
         if self.config.get_configurations('save_full_predictions'):
-            os.makedirs(self.pred_path)
+            if not os.path.isdir(self.pred_path):
+                os.makedirs(self.pred_path)
 
     def overview(self):
         '''
@@ -234,18 +244,21 @@ class Trainer():
             if hasattr(layer, 'reset_parameters'):
                 layer.reset_parameters()
 
+    def set_eval_mode(self):
+        self.model.eval()
+
     def save_model(self, file):
         '''
         Save the model (state_dict) to file
         '''
         torch.save(self.model.state_dict(), file)
-
+    
     def load_model(self, file):
         '''
         Load the model (state_dict) from file
         '''
         self.model.load_state_dict(torch.load(file))
-        print(self.model.state_dict())
+        self.set_eval_mode()
 
         print(f'Model Loaded from: {file}\n')
 
@@ -315,7 +328,7 @@ class Trainer():
         for i, target in enumerate(self.targets):
             df[f'{target}_pred'] = y_unscaled[:,i].flatten()
 
-        df.to_csv(os.path.join(self.pred_path, self.file_name.replace('.csv', '_FPredictions.csv')), index=False)
+        df.to_csv(os.path.join(self.pred_path, 'FPredictions.csv'), index=False)
 
     def __instance_Dataloaders(self):
         # Dataloader
@@ -422,13 +435,16 @@ class Trainer():
         # ======================================================================
         # ========================== Training loop =============================
         # ======================================================================
-        st = time.time() # Start time
-
         best_model_wts = copy.deepcopy(self.model.state_dict())
         best_mean_acc = 0.0
 
+        # Start time
+        start_time = time.time()
+
+        # Epochs loop
         for epoch in range(self.num_epochs):
 
+            # Batch loop
             for _, (x_train, y_train) in enumerate(train_loader): # Here we use train_loader due to batch size
                 # Load values to device
                 x_train = x_train.to(self.device)
@@ -501,7 +517,7 @@ class Trainer():
                     message = 'Model is stuck!'
                     break
 
-            if (epoch+1)%200 == 0:
+            if (epoch+1)%100 == 0:
                 if is_upper_lower_artifact(yval_pred, self.num_targets):
                     train_flag = False
                     message = 'Upper or lower artifact found'
@@ -520,7 +536,10 @@ class Trainer():
 
                 if (epoch+1)%10 == 0:
                     print(f"Epoch: {(epoch+1):04} Validation: MAE = {MAE_val['general']:.4f} ERR = {RMSE_val['general']:.4f} ACC = {acc_val['general']*100:.2f} r2 = {r2_val['general']:.4f} Loss = {loss_train:.4f}", end='\r')
+        # End time
+        end_time = time.time()
 
+        # If train ended correctly
         if train_flag:
             # =============== Restore best weights when monitoring ===================
             if monitoring:
@@ -619,8 +638,8 @@ class Trainer():
             MAE_train, RMSE_train, acc_train, r2_train = self.metrics_calc.compute(y_train, ytrain_pred)
             MAE_test, RMSE_test, acc_test, r2_test = self.metrics_calc.compute(y_test, ytest_pred)
 
-            et = time.time() # End time
-            elapsed_time = et - st
+            # Get training time
+            elapsed_time = end_time - start_time
 
             # Evaluate full data
             x, y, y_pred = self.eval_full_data()

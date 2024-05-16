@@ -46,8 +46,14 @@ class Guard():
         return inp, out
 
     def __build_filenames(self):
-        input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
-        output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
+        specific_param_file = self.config.get_configurations('specific_param_file')
+
+        if specific_param_file:
+            input_name = f'in_{specific_param_file}.npy'
+            output_name = f'out_{specific_param_file}.npy'
+        else:
+            input_name = f'in_{self.train_ID}_rs{self.random_state}.npy'
+            output_name = f'out_{self.train_ID}_rs{self.random_state}.npy'
 
         input_file = os.path.join(self.input_path, input_name)
         output_file = os.path.join(self.output_path, output_name)

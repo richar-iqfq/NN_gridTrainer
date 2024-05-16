@@ -7,46 +7,68 @@ if __name__=='__main__':
         # nnTrainer.Grid,
         # nnTrainer.Optimization,
         # nnTrainer.RestartGridFromWorst,
-        nnTrainer.Optimization,
+        # nnTrainer.Optimization,
         nnTrainer.RandomState,
         nnTrainer.TuningLr,
         nnTrainer.TuningBatch,
         nnTrainer.RandomState,
-        nnTrainer.AroundExploration
+        # nnTrainer.AroundExploration
     ]
 
     ##############
     # Parameters #
     ##############
     # b = 4
-    ID = 'b003'
+    ID = 'b004sn'
 
     # Configurator
     config = nnTrainer.Configurator()
     
     # Update config object with the required parameters
     config.update(
-        database = 'results_a-0.261.csv',
-        max_hidden_layers = 20,
+        database = 'results_a-0.27.csv',
+        max_hidden_layers = 5,
         min_neurons = 1,
         max_neurons = 6,
-        n_tries = 150,
+        n_tries = 300,
         n_networks = 1,
-        start_point = 1,
+        start_point = 5,
         num_epochs = 800,
         random_state=1234,
         batch_size=256,
         learning_rate=0.001,
         lineal_output = True,
-        seed = 88789,
+        seed = 811119,
         train_ID = ID,
         limit_threads = True,
         save_full_predictions = False,
-        config_file = 'configb003.json'
+        config_file = 'configb004.json',
+        drop='outliers_A025_4H_Adam_l1loss_rs.csv'
     )
 
     # Training launcher
     mb = LaunchBuilder(perform)
 
+    network = [
+        {
+            'hidden_layers' : 5,
+            'dimension' : (20, 16, 13, 17, 5),
+            'activation_functions' : (
+                'nn.ReLU()',
+                'nn.ReLU()',
+                'nn.LeakyReLU()',
+                'nn.ELU()',
+                'nn.RReLU()',
+                'None'
+            ),
+            'optimizer' : 'AdamW',
+            'criterion' : 'nn.L1Loss()',
+            'random_state' : 151699,
+            'num_epochs' : 800,
+            'batch_size' : 119,
+            'lr' : 0.0014321,
+        },
+    ]
+
     # Launch the training
-    mb.launch_training()
+    mb.launch_training(last_step=nnTrainer.Optimization)

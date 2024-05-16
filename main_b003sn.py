@@ -11,15 +11,15 @@ if __name__=='__main__':
         nnTrainer.RandomState,
         nnTrainer.TuningLr,
         nnTrainer.TuningBatch,
-        nnTrainer.RandomState,
-        nnTrainer.AroundExploration
+        # nnTrainer.RandomState,
+        # nnTrainer.AroundExploration
     ]
 
     ##############
     # Parameters #
     ##############
     # b = 4
-    ID = 'b003'
+    ID = 'b003sn'
 
     # Configurator
     config = nnTrainer.Configurator()
@@ -27,12 +27,12 @@ if __name__=='__main__':
     # Update config object with the required parameters
     config.update(
         database = 'results_a-0.261.csv',
-        max_hidden_layers = 20,
+        max_hidden_layers = 6,
         min_neurons = 1,
         max_neurons = 6,
-        n_tries = 150,
+        n_tries = 300,
         n_networks = 1,
-        start_point = 1,
+        start_point = 6,
         num_epochs = 800,
         random_state=1234,
         batch_size=256,
@@ -48,5 +48,27 @@ if __name__=='__main__':
     # Training launcher
     mb = LaunchBuilder(perform)
 
+    network = [
+        {
+            'hidden_layers' : 6,
+            'dimension' : (12, 20, 11, 17, 17, 18),
+            'activation_functions' : (
+                'nn.ReLU()',
+                'nn.ReLU()',
+                'nn.ELU()',
+                'nn.SELU()',
+                'nn.ELU()',
+                'nn.LeakyReLU()',
+                'None'
+            ),
+            'optimizer' : 'Adam',
+            'criterion' : 'nn.SmoothL1Loss()',
+            'random_state' : 151699,
+            'num_epochs' : 800,
+            'batch_size' : 35,
+            'lr' : 0.001,
+        },
+    ]
+
     # Launch the training
-    mb.launch_training()
+    mb.launch_training(network=network, last_step=nnTrainer.Grid)

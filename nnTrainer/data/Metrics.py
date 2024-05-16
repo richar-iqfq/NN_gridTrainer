@@ -165,6 +165,9 @@ class MetricsComputer():
 
     def __check_nan_values(self, y: np.ndarray, y_pred: np.ndarray):
         return np.isnan(np.sum(y)) or np.isnan(np.sum(y_pred))
+    
+    def __check_finite_values(self, y:np.ndarray, y_pred: np.ndarray):
+        return np.isfinite(np.sum(y)) or np.isfinite(np.sum(y_pred))
 
     def compute(self, y, y_pred):
         y = process_tensor(y)
@@ -176,7 +179,7 @@ class MetricsComputer():
         acc = {}
         r2 = {}
 
-        if self.__check_nan_values(y, y_pred):
+        if self.__check_nan_values(y, y_pred) or not self.__check_finite_values(y, y_pred):
             for i, target in enumerate(self.targets):
                 MAE[target] = 0
                 RMSE[target] = 0

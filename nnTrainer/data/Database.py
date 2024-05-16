@@ -168,8 +168,9 @@ class DatabaseLoader():
         Clean dataset to perform preparation and splitting
         '''
         dataframe = self.DataFrame
+        trainID = self.config.get_inputs('train_ID')
 
-        if 'b' in self.config.get_inputs('train_ID'):
+        if 'b' == trainID[0]:
             # Remove not converged molecules
             preprocessed_dataframe = self.__remove_b_not_converged(dataframe)
 

@@ -69,7 +69,7 @@ class Configurator(metaclass=SingletonMeta):
 
         # monitor
         self.monitoring: dict = {
-            'state' : False,
+            'monitoring_state' : False,
             'best_acc' : 0,
             'best_epoch' : 0
         }
@@ -181,7 +181,7 @@ class Configurator(metaclass=SingletonMeta):
         self.database_path = database_path
 
         if self.configurations['drop']:
-            drop_file = os.path.join('dataset', 'drop_molecules', self.configurations['drop'])
+            drop_file = os.path.join('dataset', 'dropMolecules', self.configurations['drop'])
             self.inputs['drop_file'] = drop_file
 
             if not os.path.isfile(drop_file):
