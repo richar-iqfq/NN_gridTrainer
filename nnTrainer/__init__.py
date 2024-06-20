@@ -14,6 +14,7 @@ Lineal = 'Lineal'
 AroundExploration = 'AroundExploration'
 RestartGridFromWorst = 'RestartGridFromWorst'
 Testing = 'Testing'
+AddLayers = 'AddLayers'
 
 # Path by step
 path_name = {

@@ -51,7 +51,7 @@ class Configurator(metaclass=SingletonMeta):
 
         # Target
         self.inputs: dict = {
-            'database' : 'dataset_final_sorted_3.1.0.csv',
+            'database' : 'default',
             'v_min' : [0, 0, 0, 0, 0, 0], # Min value to scale each target value
             'v_max' : [1, 1, 1, 1, 1, 1], # Max value to scale each target value
             'drop_file' : None, # File with the list of molecules to be drop from database in training
@@ -97,6 +97,7 @@ class Configurator(metaclass=SingletonMeta):
         
         # json
         self.json:dict = {
+            'database' : '',
             'features': '',
             'num_features': '',
             'targets': '',
@@ -140,8 +141,8 @@ class Configurator(metaclass=SingletonMeta):
         if self.custom['extra_filename'] == 'default':
             self.custom['extra_filename'] = f"{self.inputs['train_ID']}"
 
-        self.__build_database_routes()
         self.__import_json_values()
+        self.__build_database_routes()
 
     def __str__(self) -> str:
         text_chain = '-'*20
@@ -173,7 +174,14 @@ class Configurator(metaclass=SingletonMeta):
         '''
         Build database routes by checking the existence of data files
         '''
-        database_path = os.path.join('dataset', self.inputs['database'])
+        if self.inputs['database'] != 'default':
+            database = self.inputs['database']
+        else:
+            database = self.json['database']
+            self.inputs['database'] = database
+
+        database_path = os.path.join('dataset', database)
+        
         if not os.path.isfile(database_path):
             message = f'{database_path} not found, please check'
             raise Exception(message)
@@ -202,6 +210,8 @@ class Configurator(metaclass=SingletonMeta):
             config = json.load(f)
 
         # Rewrite values
+        self.json['database'] = config['data_structure']['database']
+
         self.json['features'] = config['data_structure']['features']
         self.json['num_features'] = len(self.json['features'])
 

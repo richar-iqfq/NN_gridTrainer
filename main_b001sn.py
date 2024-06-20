@@ -7,12 +7,12 @@ if __name__=='__main__':
         # nnTrainer.Grid,
         # nnTrainer.Optimization,
         # nnTrainer.RestartGridFromWorst,
-        nnTrainer.Optimization,
-        nnTrainer.RandomState,
+        # nnTrainer.Optimization,
+        # nnTrainer.RandomState,
         nnTrainer.TuningLr,
         nnTrainer.TuningBatch,
-        # nnTrainer.RandomState,
-        # nnTrainer.AroundExploration
+        nnTrainer.RandomState,
+        nnTrainer.AroundExploration
     ]
 
     ##############
@@ -26,7 +26,6 @@ if __name__=='__main__':
     
     # Update config object with the required parameters
     config.update(
-        database = 'results_a-0.2.csv',
         max_hidden_layers = 5,
         min_neurons = 1,
         max_neurons = 6,
@@ -70,4 +69,4 @@ if __name__=='__main__':
     ]
 
     # Launch the training
-    mb.launch_training(network=network, last_step=nnTrainer.Grid)
+    mb.launch_training(last_step=nnTrainer.RandomState)

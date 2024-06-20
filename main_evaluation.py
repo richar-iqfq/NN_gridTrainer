@@ -5,28 +5,12 @@ from nnTrainer.train.Valuator import Valuator
 if __name__=='__main__':
     #====================== Inputs ======================================
     
-    code = 'b004sn'
-    step = nnTrainer.Optimization
+    code = 'b008sn'
+    step = nnTrainer.TuningBatch
     hidden_layers = 5
     
-    criteria = 'R2Test_i'
+    criteria = 'R2Val_i'
     #====================================================================
-    
-    database = {
-        'b001' : 'results_a-0.2.csv',
-        'b002' : 'results_a-0.22.csv',
-        'b003' : 'results_a-0.261.csv',
-        'b004' : 'results_a-0.27.csv',
-        'b005' : 'results_a-0.33.csv',
-        'b001sn' : 'results_a-0.2.csv',
-        'b002sn' : 'results_a-0.22.csv',
-        'b003sn' : 'results_a-0.261.csv',
-        'b004sn' : 'results_a-0.27.csv',
-        'b005sn' : 'results_a-0.33.csv',
-        'T001' : 'dataset_final_sorted_3.1.0.csv',
-        'T002' : 'dataset_final_sorted_3.1.0.csv',
-        'T002b' : 'dataset_final_sorted_3.1.0.csv',
-    }
 
     config_files = {
         'b001sn' : 'configb001.json',
@@ -34,6 +18,9 @@ if __name__=='__main__':
         'b003sn' : 'configb003.json',
         'b004sn' : 'configb004.json',
         'b005sn' : 'configb005.json',
+        'b006sn' : 'configb006.json',
+        'b008sn' : 'configb008.json',
+        'b009sn' : 'configb009.json',
         'T001' : 'dataset_final_sorted_3.1.0.csv',
         'T002' : 'dataset_final_sorted_3.1.0.csv',
         'T002b' : 'dataset_final_sorted_3.1.0.csv',
@@ -41,7 +28,6 @@ if __name__=='__main__':
 
     config = Configurator()
     config.update(
-        database = database[code],
         config_file = config_files[code],
         lineal_output = True,
         reader_criteria = criteria,

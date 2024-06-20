@@ -340,7 +340,7 @@ class SqlReader():
                     'num_epochs' : int(train_row['Epochs'].values[0]),
                     'batch_size' : int(train_row['BatchSize'].values[0]),
                     'lr' : float(train_row['Lr'].values[0]),
-                    'parameters' : int(train_row['Parameters']),
+                    'parameters' : int(train_row['Parameters'].values[0]),
                     'acc_test' : float(acc_test_list[-1]),
                     'r2_test' : float(r2_test_list[-1]),
                     'acc_val' : float(acc_val_list[-1]),

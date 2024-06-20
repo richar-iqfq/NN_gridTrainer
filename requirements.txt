@@ -1,0 +1,12 @@
+numpy >= 1.23
+pandas >= 1.5
+scikit-learn >= 1.1
+matplotlib >= 3.6
+tqdm >= 4.64
+torchinfo >= 1.7
+rdkit >= 2022.9.5
+
+# for torch packages with cuda11.7, check pytorch page for more installations
+torch >= 1.13
+torchvision >= 0.14
+torchaudio >= 0.13

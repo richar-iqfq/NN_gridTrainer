@@ -95,7 +95,58 @@ class TuningBatch(MainLauncher):
                     pbar.update()
                     continue
 
-    def run(self, previous_step: str, network: dict=False, extra: list=['nearest_powers_of_two', 'three_increments_and_decrements']) -> None:
+    def between_powers_of_two(self, hidden_size: int, file: str):
+        logging.info(f'Searching between powers of two in batches (Parted: {self.parted})')
+        print('\n', '#'*16, ' Batch between... ', '#'*16, '\n')
+        
+        better_network = self.recover_network(hidden_size, step=self.actual_step)
+
+        if better_network == None:
+            logging.info(f"Any functional model found for {hidden_size} hidden layers in {self.actual_step}")
+            print(f'Any functional model found for {hidden_size} hidden layers...')
+            return False
+        
+        pbar = tqdm(total=50, desc='Batches', colour='green')
+
+        for i, network_step in enumerate(better_network):
+            last_better_batch = network_step['batch_size']
+            adjacent_batches = get_adjacent_batches(last_better_batch)
+            
+            if adjacent_batches[0] < last_better_batch:
+                lower_limit = last_better_batch - ((last_better_batch - adjacent_batches[0])/2)
+            else:
+                lower_limit = self.config.get_configurations('batch_size_range')[0]
+
+            if adjacent_batches[1] > last_better_batch:
+                upper_limit = (last_better_batch + adjacent_batches[1])/2
+            else:
+                upper_limit = self.config.get_configurations('batch_size_range')[1]
+
+            rnd = np.random.RandomState(seed=self.seed)
+            selected_batches = rnd.randint(lower_limit, upper_limit, 50)
+
+            for batch_size in selected_batches:
+                architecture = {
+                    'num_layers' : hidden_size,
+                    'num_targets' : self.num_targets,
+                    'num_features' : self.num_features,
+                    'dimension' : network_step['dimension'],
+                    'activation_functions' : network_step['activation_functions'],
+                    'optimizer' : network_step['optimizer'],
+                    'criterion' : network_step['criterion']
+                }
+
+                self.config.update(batch_size=int(batch_size))
+
+                tr = Trainer(file, architecture, self.config.get_hyperparameters(), step=self.actual_step, workers=self.workers)
+
+                train_flag, tr = self.launch(tr)
+
+                if not train_flag:
+                    pbar.update()
+                    continue
+
+    def run(self, previous_step: str, network: dict=False, extra: list=['nearest_powers_of_two', 'three_increments_and_decrements', 'between_powers_of_two']) -> None:
         logging.info(f'Tuning batch search started (Parted: {self.parted})')
         print('\n', '+'*50)
         print('Performing tuning batch search...\n')
@@ -181,6 +232,10 @@ class TuningBatch(MainLauncher):
             ######################## Testing three increments and decrements in batches ##########################
             if 'three_increments_and_decrements' in extra:
                 self.three_increments_and_decrements(hidden_size, file)
+
+            ######################## Testing between batches ######################
+            if 'between_powers_of_two' in extra:
+                self.between_powers_of_two(hidden_size, file)
         
         logging.info(f'Tuning batch search complete (Parted: {self.parted})')
         print('\nBatch search complete...\n')

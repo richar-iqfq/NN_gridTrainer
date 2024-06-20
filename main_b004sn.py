@@ -8,11 +8,11 @@ if __name__=='__main__':
         # nnTrainer.Optimization,
         # nnTrainer.RestartGridFromWorst,
         # nnTrainer.Optimization,
-        nnTrainer.RandomState,
-        nnTrainer.TuningLr,
-        nnTrainer.TuningBatch,
-        nnTrainer.RandomState,
-        # nnTrainer.AroundExploration
+        # nnTrainer.RandomState,
+        # nnTrainer.TuningLr,
+        # nnTrainer.TuningBatch,
+        # nnTrainer.RandomState,
+        nnTrainer.AroundExploration
     ]
 
     ##############
@@ -26,7 +26,6 @@ if __name__=='__main__':
     
     # Update config object with the required parameters
     config.update(
-        database = 'results_a-0.27.csv',
         max_hidden_layers = 5,
         min_neurons = 1,
         max_neurons = 6,

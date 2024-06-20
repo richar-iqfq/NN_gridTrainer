@@ -192,37 +192,50 @@ class MetricsComputer():
             r2['general'] = 0
 
         else:
-            MAE['general'] = mean_absolute_error(y, y_pred)
+            try:
+                MAE['general'] = mean_absolute_error(y, y_pred)
+                
+                MSE = mean_squared_error(y, y_pred)
+                RMSE['general'] = np.sqrt(MSE)
             
-            MSE = mean_squared_error(y, y_pred)
-            RMSE['general'] = np.sqrt(MSE)
-            
-            acc['general'] = abs(1 - RMSE['general'])
+                acc['general'] = abs(1 - RMSE['general'])
 
-            # Initialize r2 general
-            r2_general = 0
-            
-            # For target metrics
-            for i, target in enumerate(self.targets):
-                y_target = y[:,i]
-                y_pred_target = y_pred[:,i]
+                # Initialize r2 general
+                r2_general = 0
+                
+                # For target metrics
+                for i, target in enumerate(self.targets):
+                    y_target = y[:,i]
+                    y_pred_target = y_pred[:,i]
 
-                r2_target = np.corrcoef(y_target+self.alpha, y_pred_target+self.alpha)[0,1]**2
-            
-                if np.isnan(r2_target):
-                    r2_target = 0
+                    r2_target = np.corrcoef(y_target+self.alpha, y_pred_target+self.alpha)[0,1]**2
                 
-                r2[target] = r2_target
+                    if np.isnan(r2_target):
+                        r2_target = 0
+                    
+                    r2[target] = r2_target
 
-                r2_general += r2_target
+                    r2_general += r2_target
+                    
+                    MAE[target] = mean_absolute_error(y_target, y_pred_target)
+                    
+                    MSE = mean_squared_error(y_target, y_pred_target)
+                    RMSE[target] = np.sqrt(MSE)
+                    
+                    acc[target] = abs(1 - RMSE[target])
+            
+                r2['general'] = r2_general/len(self.targets)
+
+            except:
+                for i, target in enumerate(self.targets):
+                    MAE[target] = 0
+                    RMSE[target] = 0
+                    acc[target] = 0
+                    r2[target] = 0
                 
-                MAE[target] = mean_absolute_error(y_target, y_pred_target)
-                
-                MSE = mean_squared_error(y_target, y_pred_target)
-                RMSE[target] = np.sqrt(MSE)
-                
-                acc[target] = abs(1 - RMSE[target])
-        
-            r2['general'] = r2_general/len(self.targets)
+                MAE['general'] = 0
+                RMSE['general'] = 0
+                acc['general'] = 0
+                r2['general'] = 0
 
         return MAE, RMSE, acc, r2

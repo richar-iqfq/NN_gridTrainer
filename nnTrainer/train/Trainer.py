@@ -294,6 +294,16 @@ class Trainer():
 
         return x, y, y_pred
 
+    def eval_data(self, x: np.ndarray) -> torch.Tensor:
+        x = process_array(x)
+
+        self.model = self.model.to('cpu')
+
+        with torch.no_grad():
+            y_pred = self.model(x)
+
+        return y_pred
+
     def write_config(self, path):
         '''
         Write config.ini file on path

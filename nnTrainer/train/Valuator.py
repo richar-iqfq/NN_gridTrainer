@@ -76,3 +76,9 @@ class Valuator():
         print(f'Outliers: {outliers}')
 
         self.trainer.plots_builder.show_plots()
+
+    def evaluate_data(self, x):
+        # Evaluate given data with trainer
+        y_pred = self.trainer.eval_data(x)
+
+        return y_pred

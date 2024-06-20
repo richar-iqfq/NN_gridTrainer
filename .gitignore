@@ -5,3 +5,6 @@ logs/
 test*
 *.json
 *.csv
+main_b0*
+main_T0*
+env/
